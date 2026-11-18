@@ -1,5 +1,7 @@
 // =====================================================================
 //  Amrittt Edition - Quiz Video Auto Bot  (make-quiz-v2.mjs)
+//  v9: har slot ke 2 backup run (target+25 / +55 min); slot-log.json me 'bhej diya' ka nishan, taaki video chhute nahi aur do baar bhi na jaye
+//  v8: video EXACT time par Telegram pahunche (04:00 / 12:00 / 17:00 IST) - workflow jaldi start hota hai, video bana ke wahin ruk jaata hai
 //  v7: background pura white (orange rays/sparkles/ring + diya hata diye)
 //  v6: video = STILL IMAGE (koi animation / timer / fade nahi), sirf music.mp3; neeche ke 3 CTA photo me hi; Telegram text mono (copy ho jaye)
 //  v5: hook sticker band, 'सवाल #N' series counter, loop ending (last 0.5s intro frame me fade -> Shorts replay)
@@ -10,7 +12,7 @@
 //  Kaam: quiz-maker HTML se 1 video banao -> Telegram bot pe bhejo.
 //  GitHub Actions din me 3 baar chalata hai (subah / dophar / shaam).
 // =====================================================================
-import { chromium } from 'playwright';
+// playwright baad me (lazy) import hota hai, taaki --check-slot bina playwright ke chal sake
 import http from 'node:http';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -73,6 +75,70 @@ const DRY_RUN = process.env.DRY_RUN === '1';                    // test: Telegra
 const MAX_ATTEMPTS = 3;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ---------- EXACT TIME par bhejna ----------
+// Workflow target time se ~75 min pehle start hota hai. Video banne ke baad script yahan ruk ke
+// target time (IST) ka intezaar karta hai, phir Telegram pe bhejta hai.
+// Cron string -> target time (IST). Har slot ke 3 cron: 1 primary (jaldi start, target tak ruke) + 2 backup (target ke 25 / 55 min baad).
+// Backup tabhi chalta hai jab primary video bhej na paya ho (slot-log.json me nishan nahi). GitHub cron late ho to turant bhej deta hai.
+const SLOT_TARGETS = {
+  '13 21 * * *': '04:00', '55 22 * * *': '04:00', '25 23 * * *': '04:00',
+  '13 5 * * *': '12:00',  '55 6 * * *': '12:00',  '25 7 * * *': '12:00',
+  '13 10 * * *': '17:00', '55 11 * * *': '17:00', '25 12 * * *': '17:00'
+};
+const SLOT_LOG = path.resolve(__dirname, 'slot-log.json');
+const SLOT_MAX_LATE_MIN = 180;                       // target ke 3 ghante baad ka backup bekaar (agla slot paas aa jaata hai)
+const nowMs = () => (+process.env.FAKE_NOW_MS || Date.now());
+function slotFromEnv() {
+  const hhmm = SLOT_TARGETS[(process.env.SCHEDULE_CRON || '').trim()];
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm || '');
+  if (!m) return null;
+  const ist = new Date(nowMs() + 5.5 * 3600 * 1000);                         // IST ki aaj ki date
+  const day = ist.toISOString().slice(0, 10);
+  const ms = Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate(), +m[1], +m[2]) - 5.5 * 3600 * 1000;
+  return { id: day + ' ' + hhmm, ms, label: hhmm + ' IST' };
+}
+function readSlotLog() { try { const j = JSON.parse(fs.readFileSync(SLOT_LOG, 'utf8')); return Array.isArray(j.sent) ? j : { sent: [] }; } catch { return { sent: [] }; } }
+function markSlotSent() {
+  const sl = slotFromEnv(); if (!sl) return;
+  const j = readSlotLog(); if (!j.sent.includes(sl.id)) j.sent.push(sl.id);
+  j.sent = j.sent.slice(-40);
+  fs.writeFileSync(SLOT_LOG, JSON.stringify(j, null, 1));
+  log('Slot nishan lag gaya:', sl.id);
+}
+// workflow ka pehla step: `node make-quiz-v2.mjs --check-slot` -> skip=true/false (GITHUB_OUTPUT me)
+function checkSlotCli() {
+  const sl = slotFromEnv(); let skip = false, why = 'manual run / naya slot';
+  if (sl) {
+    if (readSlotLog().sent.includes(sl.id)) { skip = true; why = 'slot ' + sl.id + ' ka video pehle hi bhej diya gaya'; }
+    else if (nowMs() > sl.ms + SLOT_MAX_LATE_MIN * 60000) { skip = true; why = 'slot ' + sl.id + ' bahut late (' + Math.round((nowMs() - sl.ms) / 60000) + ' min), skip'; }
+    else why = 'slot ' + sl.id + ' abhi baaki hai';
+  }
+  console.log('CHECK-SLOT:', skip ? 'SKIP' : 'RUN', '-', why);
+  if (process.env.GITHUB_OUTPUT) fs.appendFileSync(process.env.GITHUB_OUTPUT, 'skip=' + skip + '\n');
+}
+function targetFromEnv() {
+  const explicit = (process.env.SEND_AT_IST || '').trim();
+  const m = /^(\d{1,2}):(\d{2})$/.exec(explicit);
+  if (m) {
+    const ist = new Date(Date.now() + 5.5 * 3600 * 1000);
+    return { ms: Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate(), +m[1], +m[2]) - 5.5 * 3600 * 1000, label: explicit + ' IST' };
+  }
+  const sl = slotFromEnv();
+  return sl ? { ms: sl.ms, label: sl.label } : null;
+}
+async function waitForSendTime() {
+  if (DRY_RUN) return;
+  const tg0 = targetFromEnv();
+  if (!tg0) { log('Exact-time target set nahi (manual run) - turant bhej raha hoon'); return; }
+  const maxWait = (+process.env.SEND_MAX_WAIT_MIN || 130) * 60000;
+  let left = tg0.ms - nowMs();
+  if (left <= 0) { log(`Target ${tg0.label} nikal chuka (${Math.round(-left / 60000)} min late) - turant bhej raha hoon`); return; }
+  if (left > maxWait) { log(`Target ${tg0.label} bahut door (${Math.round(left / 60000)} min) - ruke bina bhej raha hoon`); return; }
+  log(`Video ready. Target ${tg0.label} me ${Math.round(left / 60000)} min baaki - ruk raha hoon...`);
+  while ((left = tg0.ms - Date.now()) > 0) await sleep(Math.min(left, 30000));
+  log(`Target ${tg0.label} aa gaya - ab bhej raha hoon`);
+}
 const log = (...a) => console.log(new Date().toISOString(), '|', ...a);
 
 // ---------------------------------------------------------------------
@@ -494,6 +560,7 @@ async function runOnce(attempt) {
   const state = readState();
   let browser;
   try {
+    const { chromium } = await import('playwright');
     browser = await chromium.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-dev-shm-usage', '--autoplay-policy=no-user-gesture-required',
@@ -626,9 +693,13 @@ async function runOnce(attempt) {
     const finalPath = path.join(OUT_DIR, `quiz-${String(qno).padStart(3, '0')}.mp4`);
     fs.copyFileSync(bridge.out, finalPath);
 
+    // exact time tak ruko (sirf scheduled run me)
+    await waitForSendTime();
+
     // Telegram
     log('Telegram pe bhej raha hoon...');
     await sendVideo(finalPath, caption);
+    try { markSlotSent(); } catch (e) { log('slot nishan nahi laga:', e.message); }
     if (parts) {
       try {
         const vnote = voiceUsed.has('edge') ? `\n\nℹ️ Awaaz: backup (Edge TTS). ElevenLabs ka haal: ${JSON.stringify(eleErrs)}` : '';
@@ -679,4 +750,5 @@ async function main() {
   throw lastErr;
 }
 
+if (process.argv.includes('--check-slot')) { checkSlotCli(); process.exit(0); }
 main().then(() => process.exit(0)).catch((e) => { console.error('FATAL:', e && e.message ? e.message : e); process.exit(1); });
