@@ -2,11 +2,24 @@ name: Quiz Video Bot v2
 
 on:
   schedule:
-    # IST = UTC + 5:30. Video banne me ~5-8 min lagte hain, isliye thoda pehle chalta hai.
-    - cron: '7 22 * * *'   # 03:37 AM IST  -> video ~ subah 4 baje
-    - cron: '7 6 * * *'    # 11:37 AM IST  -> video ~ dophar 12 baje
-    - cron: '7 11 * * *'   # 04:37 PM IST  -> video ~ shaam 5 baje
-  workflow_dispatch:        # Actions tab se "Run workflow" dabake abhi test kar sakte ho
+    # Har video ke liye 3 run: 1 PRIMARY (77 min pehle start, target tak ruke, EXACT time par bheje)
+    # + 2 BACKUP (target ke 25 aur 55 min baad). Backup tabhi video banata hai jab primary bhej na paya ho.
+    # Time IST me: 04:00 AM / 12:00 PM / 05:00 PM. (IST = UTC + 5:30)
+    # Cron badlo to make-quiz-v2.mjs ke SLOT_TARGETS me bhi wahi cron likhna.
+
+    # --- 04:00 AM IST ---
+    - cron: '13 21 * * *'   # primary  02:43 AM IST
+    - cron: '55 22 * * *'   # backup 1 04:25 AM IST
+    - cron: '25 23 * * *'   # backup 2 04:55 AM IST
+    # --- 12:00 PM IST ---
+    - cron: '13 5 * * *'    # primary  10:43 AM IST
+    - cron: '55 6 * * *'    # backup 1 12:25 PM IST
+    - cron: '25 7 * * *'    # backup 2 12:55 PM IST
+    # --- 05:00 PM IST ---
+    - cron: '13 10 * * *'   # primary  03:43 PM IST
+    - cron: '55 11 * * *'   # backup 1 05:25 PM IST
+    - cron: '25 12 * * *'   # backup 2 05:55 PM IST
+  workflow_dispatch:        # Actions tab se "Run workflow" dabake abhi test kar sakte ho (turant bhejta hai)
 
 permissions:
   contents: write
@@ -18,7 +31,7 @@ concurrency:
 jobs:
   make-and-send:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 150
     steps:
       - name: Code download
         uses: actions/checkout@v4
@@ -28,32 +41,44 @@ jobs:
         with:
           node-version: 22
 
+      - name: Check - is slot ka video pehle hi ja chuka?
+        id: chk
+        env:
+          SCHEDULE_CRON: ${{ github.event.schedule }}
+        run: node make-quiz-v2.mjs --check-slot
+
       - name: ffmpeg + fonts install
+        if: steps.chk.outputs.skip != 'true'
         run: |
           sudo apt-get update
           sudo apt-get install -y ffmpeg fonts-noto-core fonts-noto-color-emoji || sudo apt-get install -y ffmpeg
           ffmpeg -version | head -n 1
 
       - name: Playwright + Chromium install
+        if: steps.chk.outputs.skip != 'true'
         run: |
           npm install --no-save --no-audit --no-fund playwright@1.49.1
           npx playwright install --with-deps chromium
 
       - name: Video banao aur Telegram pe bhejo
+        if: steps.chk.outputs.skip != 'true'
         env:
           # Secrets set nahi hain to make-quiz-v2.mjs ke upar wale DEFAULT values use honge
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           # ElevenLabs keys: awaaz band hai, isliye abhi use nahi hoti
           ELEVENLABS_KEYS: ${{ secrets.ELEVENLABS_KEYS }}
+          # kaun sa cron chala - isse script ko target time pata chalta hai
+          SCHEDULE_CRON: ${{ github.event.schedule }}
         run: node make-quiz-v2.mjs
 
-      - name: Sawal history save karo
-        if: success()
+      - name: Sawal history + slot nishan save karo
+        if: steps.chk.outputs.skip != 'true' && success()
         run: |
           git config user.name "quiz-bot"
           git config user.email "quiz-bot@users.noreply.github.com"
           git add quiz-state.json
+          if [ -f slot-log.json ]; then git add slot-log.json; fi
           if git diff --cached --quiet; then
             echo "state me koi change nahi"
           else
