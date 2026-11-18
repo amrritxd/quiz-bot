@@ -1,5 +1,6 @@
 // =====================================================================
 //  Amrittt Edition - Quiz Video Auto Bot  (make-quiz-v2.mjs)
+//  v7: background pura white (orange rays/sparkles/ring + diya hata diye)
 //  v6: video = STILL IMAGE (koi animation / timer / fade nahi), sirf music.mp3; neeche ke 3 CTA photo me hi; Telegram text mono (copy ho jaye)
 //  v5: hook sticker band, 'सवाल #N' series counter, loop ending (last 0.5s intro frame me fade -> Shorts replay)
 //  v4: end card (CTA) ke saath apni banayi sound: whoosh + chime + 2 ting (music ke upar)
@@ -382,7 +383,7 @@ const PAGE_OVERRIDE = String.raw`
     const total = QD + AD, sc = VW / W;
     const rc = document.createElement('canvas'); rc.width = VW; rc.height = VH; const rctx = rc.getContext('2d');
     rctx.setTransform(1,0,0,1,0,0); rctx.clearRect(0,0,VW,VH); rctx.scale(sc,sc);
-    render(rctx, {...item, ans: false, cur: false, m: { t: 99 }});   // t=99: sab kuch apni aakhri (ruki hui) jagah
+    render(rctx, {...item, ans: false, cur: false, m: undefined});   // m nahi = motion wali cheezein (orange rays, sparkles, diya, orange ring) bilkul nahi; background pura white
     window.__drawStaticCTA(rctx);
     rctx.setTransform(1,0,0,1,0,0);
     const url = rc.toDataURL('image/jpeg', 0.95);
