@@ -1,5 +1,6 @@
 // =====================================================================
 //  Amrittt Edition - Quiz Video Auto Bot  (make-quiz-v2.mjs)
+//  v6: video = STILL IMAGE (koi animation / timer / fade nahi), sirf music.mp3; neeche ke 3 CTA photo me hi; Telegram text mono (copy ho jaye)
 //  v5: hook sticker band, 'सवाल #N' series counter, loop ending (last 0.5s intro frame me fade -> Shorts replay)
 //  v4: end card (CTA) ke saath apni banayi sound: whoosh + chime + 2 ting (music ke upar)
 //  v3: video me sahi jawab / green NAHI dikhta; end me 'comment me jawab + Subscribe' CTA (7 sec sawal + 3 sec CTA)
@@ -123,23 +124,35 @@ async function tg(method, makeBody, isForm) {
   throw new Error('Telegram ' + lastErr);
 }
 
-async function sendText(text) {
-  const t = String(text).slice(0, 4000);
-  return tg('sendMessage', () => ({ chat_id: CHAT_ID, text: t, disable_web_page_preview: true }), false);
+// Telegram pe sab text MONO (code block) me jaata hai - tap karte hi copy ho jaata hai
+const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const mono = (t) => '<pre>' + esc(t) + '</pre>';
+async function sendHtml(html, plain) {
+  try {
+    return await tg('sendMessage', () => ({ chat_id: CHAT_ID, text: String(html).slice(0, 4000), parse_mode: 'HTML', disable_web_page_preview: true }), false);
+  } catch (e) {
+    log('HTML text nahi gaya, simple text bhej raha hoon:', e.message);
+    return tg('sendMessage', () => ({ chat_id: CHAT_ID, text: String(plain).slice(0, 4000), disable_web_page_preview: true }), false);
+  }
 }
+async function sendText(text) { return sendHtml(mono(String(text).slice(0, 3500)), text); }
 
 async function sendVideo(file, caption) {
   const buf = fs.readFileSync(file);
-  return tg('sendVideo', () => {
+  const cap = String(caption || '').slice(0, 800);
+  const go = (html) => tg('sendVideo', () => {
     const f = new FormData();
     f.append('chat_id', CHAT_ID);
-    f.append('caption', String(caption || '').slice(0, 1000));
+    f.append('caption', html ? mono(cap) : cap);
+    if (html) f.append('parse_mode', 'HTML');
     f.append('supports_streaming', 'true');
     f.append('width', '1080');
     f.append('height', '1920');
     f.append('video', new Blob([buf], { type: 'video/mp4' }), path.basename(file));
     return f;
   }, true);
+  try { return await go(true); }
+  catch (e) { log('Mono caption nahi gaya, simple caption ke saath bhej raha hoon:', e.message); return go(false); }
 }
 
 // ---------------------------------------------------------------------
@@ -346,38 +359,39 @@ const PAGE_OVERRIDE = String.raw`
     bell(t0 + 1.7, 1760, 0.2);    // ting 2
   };
 
+  // ---- Neeche ke 3 CTA (comment text + Subscribe line + Subscribe button): photo me hi, bilkul still ----
+  window.__drawStaticCTA = function(c){
+    c.save();
+    c.fillStyle = '#fff'; c.fillRect(100, 2235, W - 200, 320);
+    c.textAlign = 'center'; c.textBaseline = 'middle';
+    const t1 = 'सही जवाब कमेंट में लिखो 👇'; let f1 = 62;
+    do { c.font = '700 ' + f1 + 'px Poppins'; f1 -= 2; } while (c.measureText(t1).width > W - 420 && f1 > 30);
+    const w1 = c.measureText(t1).width;
+    c.fillStyle = '#1e88e5'; bubbleP(c, W / 2 - w1 / 2 - 70, 2298, 34);
+    c.fillStyle = '#222'; c.fillText(t1, W / 2 + 40, 2300);
+    const t2 = 'चैनल को Subscribe करो, वरना सवाल आप तक नहीं पहुँचेगा!'; let f2 = 46;
+    do { c.font = '700 ' + f2 + 'px Poppins'; f2 -= 2; } while (c.measureText(t2).width > W - 280 && f2 > 24);
+    c.fillStyle = '#e60012'; c.fillText(t2, W / 2, 2385);
+    c.fillStyle = '#e60012'; rr(c, W / 2 - 260, 2430, 520, 90, 45); c.fill();
+    c.fillStyle = '#fff'; c.font = '700 50px Poppins'; c.fillText('🔔 Subscribe', W / 2, 2478);
+    c.restore();
+  };
+
+  // ---- STILL IMAGE video: ek hi frame poori video me, koi animation / timer / fade nahi ----
   window.makeMp4 = async function(item, buf, onProg){
     const total = QD + AD, sc = VW / W;
-    const bc = document.createElement('canvas'); bc.width = VW; bc.height = VH; const bctx = bc.getContext('2d');
     const rc = document.createElement('canvas'); rc.width = VW; rc.height = VH; const rctx = rc.getContext('2d');
-    const base = ans => { bctx.setTransform(1,0,0,1,0,0); bctx.clearRect(0,0,VW,VH); bctx.scale(sc,sc); render(bctx, {...item, ans}); bctx.setTransform(1,0,0,1,0,0); };
+    rctx.setTransform(1,0,0,1,0,0); rctx.clearRect(0,0,VW,VH); rctx.scale(sc,sc);
+    render(rctx, {...item, ans: false, cur: false, m: { t: 99 }});   // t=99: sab kuch apni aakhri (ruki hui) jagah
+    window.__drawStaticCTA(rctx);
+    rctx.setTransform(1,0,0,1,0,0);
+    const url = rc.toDataURL('image/jpeg', 0.95);
+    const frame = url.slice(url.indexOf(',') + 1);
     await window.__qStart(JSON.stringify({ fps: FPS, total, w: VW, h: VH, sr: SR }));
-    // ---- loop ending: aakhri 0.5 sec me video pehle frame jaisi ho jaati hai ----
-    const LOOP = 0.5;
-    const lc = document.createElement('canvas'); lc.width = VW; lc.height = VH; const lctx = lc.getContext('2d');
-    if (item.fmt !== 'cur') {
-      lctx.setTransform(1,0,0,1,0,0); lctx.clearRect(0,0,VW,VH); lctx.scale(sc,sc);
-      render(lctx, {...item, ans: false, cur: item.fmt === 'oldcur', m: { t: 0 }});
-      lctx.setTransform(1,0,0,1,0,0);
-      fxFrame(lctx, 0, sc, item);
-    }
-    let last = null;
     const N = total * FPS;
     for (let i = 0; i < N; i++) {
-      const el = i / FPS, isQ = el < QD;
-      if (item.fmt === 'cur') {}
-      else if (item.mo || item.fmt === 'oldcur') {
-        bctx.setTransform(1,0,0,1,0,0); bctx.clearRect(0,0,VW,VH); bctx.scale(sc,sc);
-        render(bctx, {...item, ans: !isQ, cur: item.fmt === 'oldcur', m: { t: isQ ? (item.fmt === 'oldcur' ? Math.max(0, el - (HKE - 0.2)) : el) : el - QD }});
-        bctx.setTransform(1,0,0,1,0,0);
-      }
-      else if (last !== isQ) { base(!isQ); last = isQ; }
-      if (item.fmt === 'cur') { rctx.setTransform(sc,0,0,sc,0,0); renderCur(rctx, item, el); rctx.setTransform(1,0,0,1,0,0); }
-      else { rctx.drawImage(bc, 0, 0); fxFrame(rctx, el, sc, item); }
-      if (item.fmt !== 'cur' && el > total - LOOP) { const f = Math.min(1, (el - (total - LOOP)) / LOOP); rctx.save(); rctx.globalAlpha = f; rctx.drawImage(lc, 0, 0); rctx.restore(); }
-      const url = rc.toDataURL('image/jpeg', 0.95);
-      await window.__qFrame(url.slice(url.indexOf(',') + 1));
-      if (i % 15 === 0) { onProg(i / N * 0.9); await yieldNow(); }
+      await window.__qFrame(frame);
+      if (i % 30 === 0) { onProg(i / N * 0.9); await yieldNow(); }
     }
     await window.__qVideoEnd();
     onProg(0.92);
@@ -386,7 +400,7 @@ const PAGE_OVERRIDE = String.raw`
     if (item.voice) { const vs = oac.createBufferSource(); vs.buffer = item.voice; const vg = oac.createGain(); vg.gain.value = 1; vs.connect(vg); vg.connect(oac.destination); vs.start(isCA(item.fmt) ? HKE : 0.3); }
     if (item.voiceA) { const va = oac.createBufferSource(); va.buffer = item.voiceA; const vag = oac.createGain(); vag.gain.value = 1; va.connect(vag); vag.connect(oac.destination); va.start(QD + 0.35); }
     if (buf) { const sn = oac.createBufferSource(); sn.buffer = buf; sn.loop = true; const g = oac.createGain(), vl = +$('vol').value * (item.voice ? 0.35 : 1); g.gain.setValueAtTime(vl, 0); g.gain.setValueAtTime(vl, total - 0.8); g.gain.linearRampToValueAtTime(0.0001, total); sn.connect(g); g.connect(oac.destination); sn.start(0); }
-    if (window.__END_SOUND !== false) window.__endSfx(oac, QD);
+    if (window.__END_SOUND === true) window.__endSfx(oac, QD);
     if ($('tick').checked && !isCA(item.fmt)) {
       for (let k = item.voice ? Math.max(0, QD - 3) : 0; k < QD; k++) beep(oac, oac.destination, k + 0.05, k >= QD - 3 ? 1000 : 700, .08, .25);
       if (!item.sfx) { beep(oac, oac.destination, QD + 0.05, 1250, .5, .35); beep(oac, oac.destination, QD + 0.2, 1600, .5, .3); }
@@ -514,7 +528,7 @@ async function runOnce(attempt) {
       try { await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 10000))]); } catch (e) {}
     });
 
-    await page.addScriptTag({ content: `window.__END_SOUND = ${process.env.QUIZ_END_SOUND === '0' ? 'false' : 'true'};` });
+    await page.addScriptTag({ content: `window.__END_SOUND = ${process.env.QUIZ_END_SOUND === '1' ? 'true' : 'false'};` });
     await page.addScriptTag({ content: PAGE_OVERRIDE });
 
     // settings
@@ -617,7 +631,9 @@ async function runOnce(attempt) {
     if (parts) {
       try {
         const vnote = voiceUsed.has('edge') ? `\n\nℹ️ Awaaz: backup (Edge TTS). ElevenLabs ka haal: ${JSON.stringify(eleErrs)}` : '';
-        await sendText(`#${qno}\nTITLE:\n${parts.title}\n\nDESCRIPTION:\n${parts.desc}\n\nPINNED COMMENT:\n${parts.pin}${vnote}`);
+        const plain = `#${qno}\nTITLE:\n${parts.title}\n\nDESCRIPTION:\n${parts.desc}\n\nPINNED COMMENT:\n${parts.pin}${vnote}`;
+        const html = `<b>#${qno}</b>\n\n<b>TITLE</b>\n${mono(parts.title)}\n<b>DESCRIPTION</b>\n${mono(parts.desc)}\n<b>PINNED COMMENT</b>\n${mono(parts.pin)}${vnote ? '\n' + mono(vnote.trim()) : ''}`;
+        await sendHtml(html, plain);
       } catch (e) { log('Text message nahi gaya (video chala gaya):', e.message); }
     }
 
