@@ -39,15 +39,12 @@ jobs:
           npm install --no-save --no-audit --no-fund playwright@1.49.1
           npx playwright install --with-deps chromium
 
-      - name: Backup awaaz (edge-tts) install
-        run: python3 -m pip install --break-system-packages edge-tts || python3 -m pip install edge-tts
-
       - name: Video banao aur Telegram pe bhejo
         env:
           # Secrets set nahi hain to make-quiz-v2.mjs ke upar wale DEFAULT values use honge
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          # ElevenLabs keys: har key nayi line pe (ya comma se alag)
+          # ElevenLabs keys: awaaz band hai, isliye abhi use nahi hoti
           ELEVENLABS_KEYS: ${{ secrets.ELEVENLABS_KEYS }}
         run: node make-quiz-v2.mjs
 
