@@ -1,0 +1,63 @@
+name: Quiz Video Bot v1
+
+on:
+  schedule:
+    # IST = UTC + 5:30. Video banne me ~5-8 min lagte hain, isliye thoda pehle chalta hai.
+    - cron: '7 22 * * *'   # 03:37 AM IST  -> video ~ subah 4 baje
+    - cron: '7 6 * * *'    # 11:37 AM IST  -> video ~ dophar 12 baje
+    - cron: '7 11 * * *'   # 04:37 PM IST  -> video ~ shaam 5 baje
+  workflow_dispatch:        # Actions tab se "Run workflow" dabake abhi test kar sakte ho
+
+permissions:
+  contents: write
+
+concurrency:
+  group: quiz-video-bot
+  cancel-in-progress: false
+
+jobs:
+  make-and-send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Code download
+        uses: actions/checkout@v4
+
+      - name: Node setup
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: ffmpeg + fonts install
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg fonts-noto-core fonts-noto-color-emoji || sudo apt-get install -y ffmpeg
+          ffmpeg -version | head -n 1
+
+      - name: Playwright + Chromium install
+        run: |
+          npm install --no-save --no-audit --no-fund playwright@1.49.1
+          npx playwright install --with-deps chromium
+
+      - name: Video banao aur Telegram pe bhejo
+        env:
+          # Secrets set nahi hain to make-quiz-v1.mjs ke upar wale DEFAULT_BOT_TOKEN / DEFAULT_CHAT_ID use honge
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: node make-quiz-v1.mjs
+
+      - name: Sawal history save karo
+        if: success()
+        run: |
+          git config user.name "quiz-bot"
+          git config user.email "quiz-bot@users.noreply.github.com"
+          git add quiz-state.json
+          if git diff --cached --quiet; then
+            echo "state me koi change nahi"
+          else
+            git commit -m "quiz state update"
+            for i in 1 2 3 4 5; do
+              git pull --rebase origin "${{ github.ref_name }}" && git push origin "HEAD:${{ github.ref_name }}" && break
+              echo "push retry $i"; sleep 5
+            done
+          fi
