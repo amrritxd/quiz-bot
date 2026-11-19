@@ -1,5 +1,6 @@
 // =====================================================================
 //  Amrittt Edition - Quiz Video Auto Bot  (make-quiz-v2.mjs)
+//  v10: har slot ke 11 trigger (GitHub cron late/skip ho to bhi chale); slot cron ke time se apne aap pehchana jaata hai; manual/external run me SEND_SLOT=HH:MM bhi chalta hai
 //  v9: har slot ke 2 backup run (target+25 / +55 min); slot-log.json me 'bhej diya' ka nishan, taaki video chhute nahi aur do baar bhi na jaye
 //  v8: video EXACT time par Telegram pahunche (04:00 / 12:00 / 17:00 IST) - workflow jaldi start hota hai, video bana ke wahin ruk jaata hai
 //  v7: background pura white (orange rays/sparkles/ring + diya hata diye)
@@ -79,18 +80,28 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // ---------- EXACT TIME par bhejna ----------
 // Workflow target time se ~75 min pehle start hota hai. Video banne ke baad script yahan ruk ke
 // target time (IST) ka intezaar karta hai, phir Telegram pe bhejta hai.
-// Cron string -> target time (IST). Har slot ke 3 cron: 1 primary (jaldi start, target tak ruke) + 2 backup (target ke 25 / 55 min baad).
-// Backup tabhi chalta hai jab primary video bhej na paya ho (slot-log.json me nishan nahi). GitHub cron late ho to turant bhej deta hai.
-const SLOT_TARGETS = {
-  '13 21 * * *': '04:00', '55 22 * * *': '04:00', '25 23 * * *': '04:00',
-  '13 5 * * *': '12:00',  '55 6 * * *': '12:00',  '25 7 * * *': '12:00',
-  '13 10 * * *': '17:00', '55 11 * * *': '17:00', '25 12 * * *': '17:00'
-};
+// Slot = din ka ek video time (IST): 04:00 / 12:00 / 17:00.
+// Workflow me har slot ke aas-paas 11 cron hain (target se ~77 min pehle se ~113 min baad tak).
+// Script cron ke apne time se pehchanta hai ki wo kaun se slot ka hai - alag mapping likhne ki zaroorat nahi.
+// Jo bhi pehla run chal gaya wahi target tak ruk ke bhejta hai; baaki runs slot-log.json dekh ke skip ho jaate hain.
+const SLOT_MINUTES = { '04:00': 240, '12:00': 720, '17:00': 1020 };      // IST ke minute (din ki shuruaat se)
+const SLOT_EARLY_MIN = 120, SLOT_LATE_MIN = 180;                         // cron target se itna pehle / baad tak ka ho sakta hai
 const SLOT_LOG = path.resolve(__dirname, 'slot-log.json');
-const SLOT_MAX_LATE_MIN = 180;                       // target ke 3 ghante baad ka backup bekaar (agla slot paas aa jaata hai)
+const SLOT_MAX_LATE_MIN = 180;                       // target ke 3 ghante baad ka run bekaar (agla slot paas aa jaata hai)
 const nowMs = () => (+process.env.FAKE_NOW_MS || Date.now());
+function slotFromCron(cron) {
+  const m = /^\s*(\d{1,2})\s+(\d{1,2})\s+\*\s+\*\s+\*\s*$/.exec(cron || '');
+  if (!m) return null;
+  const ist = (+m[2] * 60 + +m[1] + 330) % 1440;                         // cron (UTC) -> IST minute
+  for (const [hhmm, t] of Object.entries(SLOT_MINUTES)) {
+    let d = ist - t; if (d > 720) d -= 1440; if (d <= -720) d += 1440;
+    if (d >= -SLOT_EARLY_MIN && d <= SLOT_LATE_MIN) return hhmm;
+  }
+  return null;
+}
 function slotFromEnv() {
-  const hhmm = SLOT_TARGETS[(process.env.SCHEDULE_CRON || '').trim()];
+  const forced = (process.env.SEND_SLOT || '').trim();                   // manual / cron-job.org run: SEND_SLOT=04:00
+  const hhmm = (/^\d{1,2}:\d{2}$/.test(forced) ? forced.padStart(5, '0') : null) || slotFromCron(process.env.SCHEDULE_CRON);
   const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm || '');
   if (!m) return null;
   const ist = new Date(nowMs() + 5.5 * 3600 * 1000);                         // IST ki aaj ki date
