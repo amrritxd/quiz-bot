@@ -120,3 +120,13 @@ jobs:
               echo "push retry $i"; sleep 5
             done
           fi
+
+      - name: Kuch bhi fail hua to Telegram pe batao
+        if: failure()
+        timeout-minutes: 3
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          node make-quiz-v2.mjs --notify-fail "Quiz bot workflow me error aaya - ye run dekho: $RUN_URL"
