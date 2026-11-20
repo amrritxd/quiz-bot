@@ -1,5 +1,7 @@
 // =====================================================================
 //  Amrittt Edition - Quiz Video Auto Bot  (make-quiz-v2.mjs)
+//  v12: BUG FIX - GitHub cron raat 12 ke baad late chale to wo agle din ke slot ko 'bhej diya' likh deta tha (aaj ka 5 baje wala video chhut jaata); ab cron apne asli slot ka hi maana jaata hai
+//  v11: workflow ka koi bhi step fail ho to Telegram pe turant khabar (--notify-fail)
 //  v10: har slot ke 11 trigger (GitHub cron late/skip ho to bhi chale); slot cron ke time se apne aap pehchana jaata hai; manual/external run me SEND_SLOT=HH:MM bhi chalta hai
 //  v9: har slot ke 2 backup run (target+25 / +55 min); slot-log.json me 'bhej diya' ka nishan, taaki video chhute nahi aur do baar bhi na jaye
 //  v8: video EXACT time par Telegram pahunche (04:00 / 12:00 / 17:00 IST) - workflow jaldi start hota hai, video bana ke wahin ruk jaata hai
@@ -100,18 +102,36 @@ function slotFromCron(cron) {
   return null;
 }
 function slotFromEnv() {
+  const now = nowMs(), IST_MS = 330 * 60000;
   const forced = (process.env.SEND_SLOT || '').trim();                   // manual / cron-job.org run: SEND_SLOT=04:00
-  const hhmm = (/^\d{1,2}:\d{2}$/.test(forced) ? forced.padStart(5, '0') : null) || slotFromCron(process.env.SCHEDULE_CRON);
-  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm || '');
-  if (!m) return null;
-  const ist = new Date(nowMs() + 5.5 * 3600 * 1000);                         // IST ki aaj ki date
-  const day = ist.toISOString().slice(0, 10);
-  const ms = Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate(), +m[1], +m[2]) - 5.5 * 3600 * 1000;
-  return { id: day + ' ' + hhmm, ms, label: hhmm + ' IST' };
+  let hhmm = null, targetMs = null;
+  if (/^\d{1,2}:\d{2}$/.test(forced)) {
+    hhmm = forced.padStart(5, '0');
+    const [h, mi] = hhmm.split(':').map(Number);
+    const dayStart = Math.floor((now + IST_MS) / 86400000) * 86400000 - IST_MS;   // aaj 00:00 IST (UTC ms me)
+    for (const k of [-1, 0, 1, 2]) {                                              // sabse pehla time jo ab se (3 ghante pehle tak) baaki hai
+      const t = dayStart + k * 86400000 + (h * 60 + mi) * 60000;
+      if (t >= now - SLOT_MAX_LATE_MIN * 60000) { targetMs = t; break; }
+    }
+  } else {
+    const m = /^\s*(\d{1,2})\s+(\d{1,2})\s+\*\s+\*\s+\*\s*$/.exec(process.env.SCHEDULE_CRON || '');
+    hhmm = slotFromCron(process.env.SCHEDULE_CRON);
+    if (!m || !hhmm) return null;
+    const cu = +m[2] * 60 + +m[1];                                         // cron ka UTC minute
+    const d = (() => { let x = (cu + 330) % 1440 - SLOT_MINUTES[hhmm]; if (x > 720) x -= 1440; if (x <= -720) x += 1440; return x; })();
+    // cron GitHub se late bhi chale to bhi wo apne ASLI time ke slot ka hi maana jaayega (raat 12 ke baad agle din ka nahi)
+    let intended = Math.floor(now / 86400000) * 86400000 + cu * 60000;
+    if (intended > now) intended -= 86400000;
+    targetMs = intended - d * 60000;
+  }
+  if (targetMs === null) return null;
+  const id = new Date(targetMs + IST_MS).toISOString().slice(0, 10) + ' ' + hhmm;
+  return { id, ms: targetMs, label: hhmm + ' IST' };
 }
 function readSlotLog() { try { const j = JSON.parse(fs.readFileSync(SLOT_LOG, 'utf8')); return Array.isArray(j.sent) ? j : { sent: [] }; } catch { return { sent: [] }; } }
 function markSlotSent() {
   const sl = slotFromEnv(); if (!sl) return;
+  if (sl.ms - nowMs() > 150 * 60000) { log('Slot bahut door hai, nishan nahi laga raha:', sl.id); return; }   // galti se aage ke slot ko "bhej diya" na likh de
   const j = readSlotLog(); if (!j.sent.includes(sl.id)) j.sent.push(sl.id);
   j.sent = j.sent.slice(-40);
   fs.writeFileSync(SLOT_LOG, JSON.stringify(j, null, 1));
@@ -762,4 +782,8 @@ async function main() {
 }
 
 if (process.argv.includes('--check-slot')) { checkSlotCli(); process.exit(0); }
+if (process.argv.includes('--notify-fail')) {      // workflow ka koi bhi step fail ho to Telegram pe seedha khabar
+  const msg = process.argv[process.argv.indexOf('--notify-fail') + 1] || 'Quiz bot me error aaya';
+  sendText(msg).then(() => process.exit(0)).catch(() => process.exit(0));
+} else
 main().then(() => process.exit(0)).catch((e) => { console.error('FATAL:', e && e.message ? e.message : e); process.exit(1); });
