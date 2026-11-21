@@ -1,5 +1,6 @@
 // =====================================================================
 //  Amrittt Edition - Quiz Video Auto Bot  (make-quiz-v2.mjs)
+//  v13: video ab 'Simple saaf design' (cur) me banta hai -> Safed + neela 2x2 (style d) default; Telegram pe colour ka naam likho to agla video usi style me; title / description / comment 3 alag message (alag copy)
 //  v12: BUG FIX - GitHub cron raat 12 ke baad late chale to wo agle din ke slot ko 'bhej diya' likh deta tha (aaj ka 5 baje wala video chhut jaata); ab cron apne asli slot ka hi maana jaata hai
 //  v11: workflow ka koi bhi step fail ho to Telegram pe turant khabar (--notify-fail)
 //  v10: har slot ke 11 trigger (GitHub cron late/skip ho to bhi chale); slot cron ke time se apne aap pehchana jaata hai; manual/external run me SEND_SLOT=HH:MM bhi chalta hai
@@ -57,7 +58,7 @@ const CHAT_ID = (process.env.TELEGRAM_CHAT_ID || '').trim() || DEFAULT_CHAT_ID;
 //  Video settings (HTML ke options jaise hi)
 // ---------------------------------------------------------------------
 const CONFIG = {
-  fmt: process.env.QUIZ_FMT || 'classic',     // classic = bina curiosity (oldcur | cur me curiosity hoti hai)
+  fmt: process.env.QUIZ_FMT || 'cur',         // cur = Simple saaf design (bina curiosity, colour style neeche) | classic = purana white design
   vlen: process.env.QUIZ_VLEN || '7+3',      // 5+1 | 7+1 | 9+1
   sfx: false,       // HTML ki apni awaazein band - sirf music.mp3 wali awaaz aayegi
   mo: true,
@@ -181,7 +182,8 @@ function readState() {
     return {
       used: j && typeof j.used === 'object' && j.used ? j.used : {},
       last: Number.isFinite(+j.last) ? +j.last : 0,
-      total: Number.isFinite(+j.total) ? +j.total : 0
+      total: Number.isFinite(+j.total) ? +j.total : 0,
+      style: /^[a-f]$/.test(j && j.style) ? j.style : ''
     };
   } catch {
     return { used: {}, last: 0, total: 0 };
@@ -251,6 +253,52 @@ async function sendVideo(file, caption) {
   }, true);
   try { return await go(true); }
   catch (e) { log('Mono caption nahi gaya, simple caption ke saath bhej raha hoon:', e.message); return go(false); }
+}
+
+// ---------------------------------------------------------------------
+//  Colour / style: Telegram pe naam ya number likho -> agla video usi style me
+//  1 cream | 2 dark | 3 hara | 4 safed+neela (default) | 5 gehra neela+peela | 6 peela+laal
+// ---------------------------------------------------------------------
+const DEFAULT_STYLE = 'd';
+const STYLE_NAMES = { a: '1. Cream + terracotta', b: '2. Dark + peela, 2x2', c: '3. Hara blackboard', d: '4. Safed + neela, 2x2', e: '5. Gehra neela + peela', f: '6. Peela background + laal, 2x2' };
+function parseStyleCmd(text) {
+  const t = String(text || '').toLowerCase().replace(/[.,!?]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!t || t.startsWith('/') || t.length > 40) return null;
+  const num = /^(?:style |colou?r )?([1-6])$/.exec(t);
+  if (num) return 'abcdef'[+num[1] - 1];
+  const has = (re) => re.test(t);
+  const blue = has(/neela|neele|blue|नीला|नीले/), yellow = has(/peela|peele|yellow|पीला|पीले|laal|lal |red|लाल/);
+  if (has(/gehra|gehre|deep|navy|dark blue|गहरा/) && blue) return 'e';
+  if (blue && yellow) return 'e';
+  if (blue || has(/safed|white|सफेद|सफ़ेद/)) return 'd';
+  if (yellow) return 'f';
+  if (has(/cream|terracotta|brown/)) return 'a';
+  if (has(/hara|hare|green|blackboard|हरा/)) return 'c';
+  if (has(/dark|kala|kaala|black|काला/)) return 'b';
+  return null;
+}
+let STYLE_ANNOUNCED = null;
+async function resolveStyle(state) {
+  let style = state.style || DEFAULT_STYLE;
+  try {
+    const r = await tg('getUpdates', () => ({ limit: 100, timeout: 0, allowed_updates: ['message'] }), false);
+    const list = Array.isArray(r && r.result) ? r.result : [];
+    let found = null;
+    for (const u of list) {                                   // purane se naye tak: sabse naya valid colour jeetta hai
+      const m = u && u.message;
+      if (!m || String(m.chat && m.chat.id) !== String(CHAT_ID) || !m.text) continue;
+      const k = parseStyleCmd(m.text);
+      if (k) found = k;
+    }
+    if (found && found !== style) {
+      style = found;
+      if (STYLE_ANNOUNCED !== found) {
+        STYLE_ANNOUNCED = found;
+        try { await sendText('🎨 Style set: ' + STYLE_NAMES[found] + '\nAgla video isi design me banega.'); } catch {}
+      }
+    }
+  } catch (e) { log('Telegram se colour padh nahi paya (purana style chalega):', e && e.message ? e.message : e); }
+  return style;
 }
 
 // ---------------------------------------------------------------------
@@ -480,8 +528,13 @@ const PAGE_OVERRIDE = String.raw`
     const total = QD + AD, sc = VW / W;
     const rc = document.createElement('canvas'); rc.width = VW; rc.height = VH; const rctx = rc.getContext('2d');
     rctx.setTransform(1,0,0,1,0,0); rctx.clearRect(0,0,VW,VH); rctx.scale(sc,sc);
-    render(rctx, {...item, ans: false, cur: false, m: undefined});   // m nahi = motion wali cheezein (orange rays, sparkles, diya, orange ring) bilkul nahi; background pura white
-    window.__drawStaticCTA(rctx);
+    if (item.fmt === 'cur') {
+      // Simple saaf design: pura text + options + comment/Subscribe design ke andar hi; sab likha hua frame (t = QD)
+      rctx.setTransform(sc,0,0,sc,0,0); renderCur(rctx, item, QD);
+    } else {
+      render(rctx, {...item, ans: false, cur: false, m: undefined});   // m nahi = motion wali cheezein bilkul nahi; background pura white
+      window.__drawStaticCTA(rctx);
+    }
     rctx.setTransform(1,0,0,1,0,0);
     const url = rc.toDataURL('image/jpeg', 0.95);
     const frame = url.slice(url.indexOf(',') + 1);
@@ -589,6 +642,8 @@ async function runOnce(attempt) {
   const server = await startServer(musicFile);
   const port = server.address().port;
   const state = readState();
+  const style = await resolveStyle(state);
+  log('Style:', style, STYLE_NAMES[style]);
   let browser;
   try {
     const { chromium } = await import('playwright');
@@ -640,13 +695,13 @@ async function runOnce(attempt) {
       };
       set('fmt', c.fmt); set('vlen', c.vlen); set('sfx', c.sfx); set('mo', c.mo); set('fx', c.fx);
       set('tick', c.tick); set('vol', c.vol); set('hook', c.hook); set('mc', c.mc);
-      set('wimg', false); set('vn', '1');
+      set('wimg', false); set('vn', '1'); set('sty', c.style);
       // awaaz ON (asli ElevenLabs call Node karta hai)
       const xv = document.getElementById('xv');
       if (xv && ![...xv.options].some((o) => o.value === c.voiceId)) { const o = document.createElement('option'); o.value = c.voiceId; o.textContent = c.voiceId; xv.appendChild(o); }
       if (c.voice) { set('xk', 'managed-by-node'); set('xm', c.model); set('xv', c.voiceId); set('vo', true); }
       else set('vo', false);
-    }, { ...CONFIG, model: ELEVEN_MODEL, voiceId: ELEVEN_VOICE });
+    }, { ...CONFIG, style, model: ELEVEN_MODEL, voiceId: ELEVEN_VOICE });
 
     // music.mp3 = video ki awaaz (har attempt me)
     if (musicFile) {
@@ -718,7 +773,7 @@ async function runOnce(attempt) {
       parts.title = noCur(parts.title); parts.desc = noCur(parts.desc); parts.pin = noCur(parts.pin);
     }
     const qno = bridge.meta.qno;
-    const caption = parts ? `#${qno} ${parts.title}\n\n${parts.desc}` : `Quiz #${qno}`;
+    const caption = `Quiz #${qno}`;
 
     fs.mkdirSync(OUT_DIR, { recursive: true });
     const finalPath = path.join(OUT_DIR, `quiz-${String(qno).padStart(3, '0')}.mp4`);
@@ -732,17 +787,22 @@ async function runOnce(attempt) {
     await sendVideo(finalPath, caption);
     try { markSlotSent(); } catch (e) { log('slot nishan nahi laga:', e.message); }
     if (parts) {
-      try {
-        const vnote = voiceUsed.has('edge') ? `\n\nℹ️ Awaaz: backup (Edge TTS). ElevenLabs ka haal: ${JSON.stringify(eleErrs)}` : '';
-        const plain = `#${qno}\nTITLE:\n${parts.title}\n\nDESCRIPTION:\n${parts.desc}\n\nPINNED COMMENT:\n${parts.pin}${vnote}`;
-        const html = `<b>#${qno}</b>\n\n<b>TITLE</b>\n${mono(parts.title)}\n<b>DESCRIPTION</b>\n${mono(parts.desc)}\n<b>PINNED COMMENT</b>\n${mono(parts.pin)}${vnote ? '\n' + mono(vnote.trim()) : ''}`;
-        await sendHtml(html, plain);
-      } catch (e) { log('Text message nahi gaya (video chala gaya):', e.message); }
+      // title / description / pinned comment: 3 ALAG message, har ek tap karke alag copy hota hai
+      const sendPart = async (label, text) => {
+        try { await sendHtml(`<b>#${qno} ${label}</b>\n${mono(text)}`, `#${qno} ${label}\n${text}`); }
+        catch (e) { log(label + ' message nahi gaya (video chala gaya):', e.message); }
+      };
+      await sendPart('TITLE', parts.title);
+      await sendPart('DESCRIPTION', parts.desc);
+      await sendPart('COMMENT', parts.pin);
+      if (voiceUsed.has('edge')) {
+        try { await sendText(`ℹ️ Awaaz: backup (Edge TTS). ElevenLabs ka haal: ${JSON.stringify(eleErrs)}`); } catch {}
+      }
     }
 
     // state save (bhejne ke baad)
     const st = await page.evaluate(() => ({ used: USED, last: LAST }));
-    writeState({ used: st.used, last: st.last, total: (state.total || 0) + 1 });
+    writeState({ used: st.used, last: st.last, total: (state.total || 0) + 1, style });
     log('Done. Sent quiz #' + qno);
     return true;
   } finally {
