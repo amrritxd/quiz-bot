@@ -405,7 +405,7 @@ function startServer(musicFile) {
     try {
       if (u === '/' || u === '/index.html') {
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-        res.end(fs.readFileSync(HTML_PATH, 'utf8').replace('rem=Q-t,', 'rem=(window.__RT!=null?window.__RT:Q-t),').replace("const ct='सही जवाब कमेंट में लिखो',cp=ph(0.85,0.96);", "const ct='',cp=0;"));
+        res.end(fs.readFileSync(HTML_PATH, 'utf8').replace('rem=Q-t,', 'rem=(window.__RT!=null?window.__RT:Q-t),').replace("const ct='सही जवाब कमेंट में लिखो',cp=ph(0.85,0.96);", "const ct='',cp=0;").replace('fr=Math.min(1,Math.max(0,rem/Q))', 'fr=Math.min(1,Math.max(0,rem/(window.__RTT||Q)))'));
       } else if (u === '/music.mp3' && musicFile && fs.existsSync(musicFile)) {
         res.writeHead(200, { 'content-type': 'audio/wav' });
         res.end(fs.readFileSync(musicFile));
@@ -546,13 +546,13 @@ const PAGE_OVERRIDE = String.raw`
     await window.__qStart(JSON.stringify({ fps: FPS, total, w: VW, h: VH, sr: SR }));
     const N = total * FPS;
     for (let i = 0; i < N; i++) {
-      if (isCur && (i <= NQ || !frame)) {
-        // text pura likha hua (t = QD), sirf countdown circle chalta hai: rem = QD -> 0
-        window.__RT = Math.max(0, QD - i / FPS);
+      if (isCur) {
+        // text pura likha hua (t = QD), sirf countdown circle chalta hai: poori video bhar (total -> 0)
+        window.__RTT = total; window.__RT = Math.max(0, total - i / FPS);
         rctx.setTransform(sc,0,0,sc,0,0); renderCur(rctx, item, QD);
         rctx.setTransform(1,0,0,1,0,0);
         frame = grab();
-        window.__RT = null;
+        window.__RT = null; window.__RTT = null;
       }
       await window.__qFrame(frame);
       if (i % 30 === 0) { onProg(i / N * 0.9); await yieldNow(); }
