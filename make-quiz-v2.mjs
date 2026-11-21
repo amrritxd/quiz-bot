@@ -227,7 +227,12 @@ async function tg(method, makeBody, isForm) {
 // Telegram pe sab text MONO (code block) me jaata hai - tap karte hi copy ho jaata hai
 const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const mono = (t) => '<pre>' + esc(t) + '</pre>';
-async function sendHtml(html, plain) {
+async function sendHtml(html, plain, markup) {
+  if (markup) {
+    try {
+      return await tg('sendMessage', () => ({ chat_id: CHAT_ID, text: String(html).slice(0, 4000), parse_mode: 'HTML', disable_web_page_preview: true, reply_markup: markup }), false);
+    } catch (e) { log('Copy button nahi laga, bina button ke bhej raha hoon:', e.message); }
+  }
   try {
     return await tg('sendMessage', () => ({ chat_id: CHAT_ID, text: String(html).slice(0, 4000), parse_mode: 'HTML', disable_web_page_preview: true }), false);
   } catch (e) {
@@ -400,7 +405,7 @@ function startServer(musicFile) {
     try {
       if (u === '/' || u === '/index.html') {
         res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-        res.end(fs.readFileSync(HTML_PATH));
+        res.end(fs.readFileSync(HTML_PATH, 'utf8').replace('rem=Q-t,', 'rem=(window.__RT!=null?window.__RT:Q-t),').replace("const ct='सही जवाब कमेंट में लिखो',cp=ph(0.85,0.96);", "const ct='',cp=0;"));
       } else if (u === '/music.mp3' && musicFile && fs.existsSync(musicFile)) {
         res.writeHead(200, { 'content-type': 'audio/wav' });
         res.end(fs.readFileSync(musicFile));
@@ -528,19 +533,27 @@ const PAGE_OVERRIDE = String.raw`
     const total = QD + AD, sc = VW / W;
     const rc = document.createElement('canvas'); rc.width = VW; rc.height = VH; const rctx = rc.getContext('2d');
     rctx.setTransform(1,0,0,1,0,0); rctx.clearRect(0,0,VW,VH); rctx.scale(sc,sc);
-    if (item.fmt === 'cur') {
-      // Simple saaf design: pura text + options + comment/Subscribe design ke andar hi; sab likha hua frame (t = QD)
-      rctx.setTransform(sc,0,0,sc,0,0); renderCur(rctx, item, QD);
-    } else {
-      render(rctx, {...item, ans: false, cur: false, m: undefined});   // m nahi = motion wali cheezein bilkul nahi; background pura white
+    const isCur = item.fmt === 'cur';
+    const NQ = Math.round(QD * FPS);
+    let frame = null;
+    const grab = () => { const u = rc.toDataURL('image/jpeg', 0.92); return u.slice(u.indexOf(',') + 1); };
+    if (!isCur) {
+      render(rctx, {...item, ans: false, cur: false, m: undefined});   // purana still design
       window.__drawStaticCTA(rctx);
+      rctx.setTransform(1,0,0,1,0,0);
+      frame = grab();
     }
-    rctx.setTransform(1,0,0,1,0,0);
-    const url = rc.toDataURL('image/jpeg', 0.95);
-    const frame = url.slice(url.indexOf(',') + 1);
     await window.__qStart(JSON.stringify({ fps: FPS, total, w: VW, h: VH, sr: SR }));
     const N = total * FPS;
     for (let i = 0; i < N; i++) {
+      if (isCur && (i <= NQ || !frame)) {
+        // text pura likha hua (t = QD), sirf countdown circle chalta hai: rem = QD -> 0
+        window.__RT = Math.max(0, QD - i / FPS);
+        rctx.setTransform(sc,0,0,sc,0,0); renderCur(rctx, item, QD);
+        rctx.setTransform(1,0,0,1,0,0);
+        frame = grab();
+        window.__RT = null;
+      }
       await window.__qFrame(frame);
       if (i % 30 === 0) { onProg(i / N * 0.9); await yieldNow(); }
     }
@@ -789,12 +802,16 @@ async function runOnce(attempt) {
     if (parts) {
       // title / description / pinned comment: 3 ALAG message, har ek tap karke alag copy hota hai
       const sendPart = async (label, text) => {
-        try { await sendHtml(`<b>#${qno} ${label}</b>\n${mono(text)}`, `#${qno} ${label}\n${text}`); }
+        try {
+          // Telegram 1-line code block pe 'COPY CODE' nahi dikhata -> copy_text button (limit 256 akshar)
+          const markup = (text && text.length <= 256)
+            ? { inline_keyboard: [[{ text: '📋 Copy ' + label.toLowerCase(), copy_text: { text } }]] } : null;
+          await sendHtml(`<b>#${qno} ${label}</b>\n${mono(text)}`, `#${qno} ${label}\n${text}`, markup);
+        }
         catch (e) { log(label + ' message nahi gaya (video chala gaya):', e.message); }
       };
       await sendPart('TITLE', parts.title);
       await sendPart('DESCRIPTION', parts.desc);
-      await sendPart('COMMENT', parts.pin);
       if (voiceUsed.has('edge')) {
         try { await sendText(`ℹ️ Awaaz: backup (Edge TTS). ElevenLabs ka haal: ${JSON.stringify(eleErrs)}`); } catch {}
       }
