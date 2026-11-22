@@ -157,21 +157,17 @@ button.go{min-height:50px;font-size:16px}
     <details class="sec" open>
       <summary>Video + Awaaz <span class="tip">1080p MP4</span></summary>
       <div class="in">
-        <label>Video ka format</label>
-        <select id="fmt"><option value="cur" selected>🌿 Simple saaf design (bina curiosity)</option><option value="oldcur">🔮 Purana peela design + Curiosity</option><option value="classic">Classic (bina curiosity)</option></select>
-        <label>Simple design ka style (upar "Simple saaf design" ke liye)</label>
-        <select id="sty"><option value="e">⭐ 5. Gehra neela + peela (feed mein sabse alag)</option><option value="f">☀️ 6. Peela background + laal, 2x2</option><option value="a">🌿 1. Cream + terracotta</option><option value="b">🌙 2. Dark + peela, 2x2 options</option><option value="c">🧑‍🏫 3. Hara blackboard, gol photo</option><option value="d" selected>💙 4. Safed + neela, 2x2 options</option></select>
+        <label>🎨 Rang (colour theme) — design same, sirf rang alag</label>
+        <select id="pal"><option value="auto">🎲 Auto (har video alag rang)</option><option value="classic" selected>🟡 Classic (peela + laal)</option><option value="bubble">🩷 Bubblegum (gulabi + jamuni)</option><option value="sky">🩵 Sky Blue (aasmani + narangi)</option><option value="jungle">🟢 Jungle (hara + narangi)</option><option value="sunset">🟠 Sunset (narangi + magenta)</option><option value="magic">🟣 Magic (baingani + laal)</option><option value="night">🌙 Night (dark + peela)</option></select>
         <label>Video ki lambai (sawal + end me comment/Subscribe wala CTA, jawab nahi dikhta)</label>
         <select id="vlen"><option value="5+1">6 sec (5 + 1)</option><option value="7+1">8 sec (7 + 1)</option><option value="7+3" selected>10 sec (7 + 3), best</option><option value="9+1">10 sec (9 + 1)</option></select>
         <label class="chk"><input type="checkbox" id="sfx" checked> 🔊 Sound effects (whoosh, pop, ghanti chime, thud)</label>
         <label class="chk"><input type="checkbox" id="mo" checked> ✨ Motion graphics (rays, pop-in photo, slide options, sparkles, flash)</label>
         <label class="chk"><input type="checkbox" id="fx" checked> Engagement effects (hook, comment CTA, confetti, Subscribe)</label>
-        <label>Hook line (khali = auto badalta rahega)</label>
-        <input id="hook" placeholder="jaise: 5 सेकंड में बताओ!">
         <div class="box">
           <label class="chk" style="margin-top:0"><input type="checkbox" id="vo"> 🎙️ Awaaz add karo (ElevenLabs): sawal + options + sahi jawab + Subscribe bolega</label>
           <label>ElevenLabs API key (sirf is browser mein save hoti hai)</label>
-          <input id="xk" type="password" placeholder="sk_..." autocomplete="off">
+          <input id="xk" type="password" placeholder="sk_... (kai keys comma se alag)" autocomplete="off">
           <div class="row">
             <div><label>Voice</label><select id="xv"><option value="JBFqnCBsd6RMkjVDRZzb">George</option><option value="21m00Tcm4TlvDq8ikWAM">Rachel</option><option value="pNInz6obpgDQGcFmaJgB">Adam</option><option value="EXAVITQu4vr4xnSDxMaL">Sarah</option></select></div>
             <div><label>Model</label><select id="xm"><option value="eleven_multilingual_v2">Multilingual v2 (Hindi best)</option><option value="eleven_flash_v2_5">Flash v2.5 (sasta)</option></select></div>
@@ -190,6 +186,24 @@ button.go{min-height:50px;font-size:16px}
         </div>
         <label class="chk"><input type="checkbox" id="wimg"> Saath mein Question + Answer HD image (PNG) bhi</label>
         <label class="chk"><input type="checkbox" id="tick" checked> Tik-tik countdown awaaz</label>
+      </div>
+    </details>
+
+    <details class="sec" open>
+      <summary>Telegram + Extra <span class="tip">bot, watermark</span></summary>
+      <div class="in">
+        <label>Channel naam (video ke neeche watermark, khali = nahi)</label><input id="chn" placeholder="@MeraChannel">
+        <label class="chk"><input type="checkbox" id="loop" checked> 🔁 Shorts loop fade (video ke start/end me halka fade)</label>
+        <label class="chk"><input type="checkbox" id="skp"> ⏭️ Photo na mile to wo sawal chhodkar agla banao</label>
+        <div class="box">
+          <label class="chk" style="margin-top:0"><input type="checkbox" id="tgs"> 📨 Video banne par Telegram pe bhejo (video + Title + Description + Comment)</label>
+          <label>Bot token (sirf is browser me save)</label><input id="tgt" type="password" placeholder="123456:ABC..." autocomplete="off">
+          <label>Chat ID</label><input id="tgc" placeholder="8918...">
+          <div class="row mt-2"><button class="sec" id="tgtest">▶ Telegram test</button><button class="sec" id="tgpal">📩 Message se rang padho</button></div>
+          <div class="small mt-1.5" id="tgmsg"></div>
+        </div>
+        <div class="row mt-2"><button class="sec" id="hexp">⬇ History backup</button><button class="sec" id="himp">⬆ History load</button></div>
+        <input type="file" id="hfile" accept="application/json" hidden>
       </div>
     </details>
 
@@ -384,20 +398,32 @@ function artAnim(c,x,y,S,sub,t){
 
 // main renderer: draws onto any 2d context
 const eo=t=>1-Math.pow(1-Math.min(Math.max(t,0),1),3);
+// ---------- colour themes (layout same, sirf rang alag) ----------
+const PALS={
+ classic:{bg:'#ffffff',head:'#ffeb3b',ht:'#000000',txt:'#000000',hl:'#e60012',ring:'rgba(255,171,46,0.85)',ray:'rgba(255,159,28,0.11)',s1:'#ffb300',s2:'#ff7043',sb:'#f4f5f7',sl:'#dcdfe5',s2t:'#444444',btn:'#e60012',bar:'#e60012',track:'#e6e6e6',sub:'#222222'},
+ bubble:{bg:'#fff0f8',head:'#ff6fb5',ht:'#ffffff',txt:'#3b0a2a',hl:'#7c3aed',ring:'rgba(255,111,181,0.85)',ray:'rgba(255,111,181,0.13)',s1:'#ff6fb5',s2:'#c084fc',sb:'#ffe3f2',sl:'#ffb8dc',s2t:'#7a2a58',btn:'#7c3aed',bar:'#7c3aed',track:'#ffd6ec',sub:'#3b0a2a'},
+ sky:{bg:'#eaf7ff',head:'#38bdf8',ht:'#04283f',txt:'#06263d',hl:'#ff5722',ring:'rgba(56,189,248,0.9)',ray:'rgba(56,189,248,0.14)',s1:'#38bdf8',s2:'#ffd23f',sb:'#d6efff',sl:'#9fd8f7',s2t:'#12526e',btn:'#ff5722',bar:'#ff5722',track:'#cbe9fa',sub:'#06263d'},
+ jungle:{bg:'#f0fbe6',head:'#7ed957',ht:'#0b3d0b',txt:'#0e2a0e',hl:'#f97316',ring:'rgba(126,217,87,0.9)',ray:'rgba(126,217,87,0.16)',s1:'#7ed957',s2:'#ffd23f',sb:'#dff5cc',sl:'#aee08a',s2t:'#2f5d1b',btn:'#f97316',bar:'#f97316',track:'#d3efbf',sub:'#0e2a0e'},
+ sunset:{bg:'#fff4e3',head:'#ff9f1c',ht:'#3a1a00',txt:'#2e1500',hl:'#d81b60',ring:'rgba(255,111,0,0.85)',ray:'rgba(255,111,0,0.12)',s1:'#ff9f1c',s2:'#ff4d6d',sb:'#ffe6c2',sl:'#ffc98a',s2t:'#7a3d00',btn:'#d81b60',bar:'#d81b60',track:'#ffdcae',sub:'#2e1500'},
+ magic:{bg:'#f6efff',head:'#a855f7',ht:'#ffffff',txt:'#2a0f4d',hl:'#e11d48',ring:'rgba(168,85,247,0.85)',ray:'rgba(168,85,247,0.12)',s1:'#a855f7',s2:'#ffd23f',sb:'#eadcff',sl:'#cfb2fb',s2t:'#5a2d97',btn:'#e11d48',bar:'#e11d48',track:'#e0cffb',sub:'#2a0f4d'},
+ night:{bg:'#15122e',head:'#ffd54f',ht:'#1a1a1a',txt:'#ffffff',hl:'#ffd54f',ring:'rgba(255,213,79,0.85)',ray:'rgba(120,100,255,0.16)',s1:'#ffd54f',s2:'#7c6cff',sb:'#241f4a',sl:'#3b3470',s2t:'#c9c4ff',btn:'#ff4d6d',bar:'#ffd54f',track:'#2c2759',sub:'#ffffff'}
+};
+let PAL=PALS.classic;
+const PK=Object.keys(PALS);const setPal=()=>{const k=($('pal')||{}).value;PAL=PALS[k]||(k==='auto'?PALS[PK[((window.AUTOI!=null?window.AUTOI:(+$('qno').value||0))%PK.length+PK.length)%PK.length]]:PALS.classic)};
 function render(c,st){
-  const m=st.m,T=m?m.t:99;
+  setPal();const m=st.m,T=m?m.t:99;
   c.imageSmoothingEnabled=true;c.imageSmoothingQuality=m?'medium':'high';
-  c.fillStyle='#fff';c.fillRect(0,0,W,H);
+  c.fillStyle=PAL.bg;c.fillRect(0,0,W,H);
   if(m){
     // sunburst rays behind photo
     c.save();c.translate(950,1060);c.rotate(T*0.22+(st.ans?1:0));
-    c.fillStyle='rgba(255,159,28,0.11)';
+    c.fillStyle=PAL.ray;
     for(let i=0;i<14;i++){c.rotate(Math.PI*2/14);c.beginPath();c.moveTo(0,0);c.lineTo(1900,-130);c.lineTo(1900,130);c.closePath();c.fill()}
     c.restore();
     // rising sparkles
     for(let i=0;i<26;i++){
       const sp=70+(i%5)*38,y=H+40-((T*sp+i*263)%(H+80)),x=(i*191+Math.sin(T*1.3+i)*40)%W,r=5+(i%4)*3;
-      c.globalAlpha=0.22+0.18*Math.sin(T*3+i);c.fillStyle=i%3?'#ffb300':'#ff7043';
+      c.globalAlpha=0.22+0.18*Math.sin(T*3+i);c.fillStyle=i%3?PAL.s1:PAL.s2;
       c.beginPath();c.arc(x,y,r,0,7);c.fill();
     }
     c.globalAlpha=1;
@@ -415,16 +441,16 @@ function render(c,st){
     c.beginPath();c.moveTo(0,-95);c.bezierCurveTo(42,-48,34,-8,0,0);c.bezierCurveTo(-34,-8,-42,-48,0,-95);c.fill();c.restore();
   }
   c.save();if(m)c.translate(0,-230*(1-eo(T/0.45)));
-  c.fillStyle='#ffeb3b';c.fillRect(0,0,W,212);
-  c.textBaseline='top';c.textAlign='center';c.fillStyle='#000';
+  c.fillStyle=PAL.head;c.fillRect(0,0,W,212);
+  c.textBaseline='top';c.textAlign='center';c.fillStyle=PAL.ht;
   let ts=130,title=(SUBS[st.sub]||SUBS.gk).t+' Quiz';
   do{c.font=`700 ${ts}px Poppins`;ts-=4}while(c.measureText(title).width>W-220);
   c.fillText(title,W/2,28);
-  if(st.qno){c.font='700 46px Poppins';c.textAlign='right';c.fillStyle='#000';c.fillText('सवाल #'+st.qno,W-40,150)}
+  if(st.qno){c.font='700 46px Poppins';c.textAlign='right';c.fillStyle=PAL.ht;c.fillText('सवाल #'+st.qno,W-40,150)}
   if(m){const x0=((T*950)%(W+700))-350,lg=c.createLinearGradient(x0,0,x0+320,212);lg.addColorStop(0,'rgba(255,255,255,0)');lg.addColorStop(0.5,'rgba(255,255,255,0.38)');lg.addColorStop(1,'rgba(255,255,255,0)');c.fillStyle=lg;c.fillRect(0,0,W,212)}
   c.restore();
-  c.textAlign='left';c.fillStyle='#000';c.font='700 150px Poppins';
-  {const qs=m&&!st.ans?Math.max(bk((T-0.1)/0.5),0):1;c.save();c.translate(190,415);c.scale(qs,qs);c.textAlign='center';c.textBaseline='middle';c.fillStyle='#000';c.fillText('Q ]',0,0);c.restore()}
+  c.textAlign='left';c.fillStyle=PAL.txt;c.font='700 150px Poppins';
+  {const qs=m&&!st.ans?Math.max(bk((T-0.1)/0.5),0):1;c.save();c.translate(190,415);c.scale(qs,qs);c.textAlign='center';c.textBaseline='middle';c.fillStyle=PAL.txt;c.fillText('Q ]',0,0);c.restore()}
 
   const hls=new Set((st.hl||'').trim().split(/\s+/).filter(Boolean));let size=88,lines;
   do{lines=wrapWords(c,st.q,`700 ${size}px Poppins`,1060);size-=4}while(lines.length>3&&size>56);
@@ -436,7 +462,7 @@ function render(c,st){
   for(const ln of lines){
     let x=320;
     for(const w of ln){
-      c.fillStyle=(hls.size&&hls.has(w.replace(/[?,।.‘’“”]/g,'')))?'#e60012':'#000';
+      c.fillStyle=(hls.size&&hls.has(w.replace(/[?,।.‘’“”]/g,'')))?PAL.hl:PAL.txt;
       const al=(m&&!st.ans)?eo((T-0.3-wi*0.1)/0.25):1;wi++;
       c.globalAlpha=al;c.fillText(w,x,y+(1-al)*38);c.globalAlpha=1;x+=c.measureText(w+' ').width;
     }
@@ -448,8 +474,7 @@ function render(c,st){
   if(m){const ps=st.ans?1+0.05*Math.max(0,1-T/0.5):Math.max(bk((T-0.15)/0.6),0);c.translate(cx,cy);c.scale(ps,ps);c.translate(-cx,-cy)}
   c.save();c.shadowColor='rgba(0,0,0,.45)';c.shadowBlur=30;c.shadowOffsetY=14;
   c.fillStyle='#fff';c.beginPath();c.arc(cx,cy,S/2,0,7);c.fill();c.restore();
-  if(m&&st.cur){const pr=eo(Math.min(Math.max(T/(QD-HKE+0.2),0),1)),nn=st.ans?Math.min(S,70+(S-70)*eo(T/0.25)):12+pr*58;curPhoto(c,cx,cy,S/2,st,nn)}
-  else{
+  {
   c.save();c.beginPath();c.arc(cx,cy,S/2,0,7);c.clip();
   if(st.photo){
     const z=(st.zoom||1)*(m?1+0.08*Math.min((T+(st.ans?QD:0))/(QD+AD),1):1),sc=Math.max(S/st.photo.width,S/st.photo.height)*z;
@@ -458,9 +483,7 @@ function render(c,st){
   }else{c.translate(ax,ay);drawDesign(c,S)}
   c.restore();
   }
-  if(m){c.lineWidth=12;c.strokeStyle='rgba(255,171,46,0.85)';c.beginPath();c.arc(cx,cy,S/2+16+10*Math.sin(T*4),0,7);c.stroke()}
-  if(m&&st.cur){const lx=cx-S/2*0.71,ly=cy-S/2*0.71;c.fillStyle='#fff';c.lineWidth=8;c.strokeStyle='#e60012';c.beginPath();c.arc(lx,ly,66,0,7);c.fill();c.stroke();
-    lockIcon(c,lx,ly+4,56,false,'#e60012')}
+  if(m){c.lineWidth=12;c.strokeStyle=PAL.ring;c.beginPath();c.arc(cx,cy,S/2+16+10*Math.sin(T*4),0,7);c.stroke()}
   c.restore();
 
   let oy=1560;
@@ -471,7 +494,7 @@ function render(c,st){
     if(right){c.fillStyle='#b9f6ca';rr(c,90,oy-10,1270,160,40);c.fill()}
     
     let s=112;do{c.font=`700 ${s}px Poppins`;s-=4}while(c.measureText(t).width>(right?1130:1240)&&s>50);
-    c.textBaseline='middle';c.fillStyle=right?'#0b5d2a':'#000';c.fillText(t,130,oy+74);
+    c.textBaseline='middle';c.fillStyle=right?'#0b5d2a':PAL.txt;c.fillText(t,130,oy+74);
     if(right){c.font='700 100px Poppins';c.textAlign='right';c.fillText('✔',1330,oy+74);c.textAlign='left'}
     c.textBaseline='top';
     c.globalAlpha=1;c.restore();oy+=170;
@@ -479,14 +502,15 @@ function render(c,st){
 
   // subscribe block (calm, normal)
   const bw=W-300,bh=200,bx=150,by=2270,r=36;
-  c.fillStyle='#f4f5f7';rr(c,bx,by,bw,bh,r);c.fill();
-  c.lineWidth=4;c.strokeStyle='#dcdfe5';rr(c,bx+2,by+2,bw-4,bh-4,r-2);c.stroke();
+  c.fillStyle=PAL.sb;rr(c,bx,by,bw,bh,r);c.fill();
+  c.lineWidth=4;c.strokeStyle=PAL.sl;rr(c,bx+2,by+2,bw-4,bh-4,r-2);c.stroke();
   const fit=(tt,sz,min,mw)=>{while(sz>min){c.font=`700 ${sz}px Poppins`;if(c.measureText(tt).width<=mw)break;sz-=2}return sz};
   const l1='Subscribe करें',l2='वरना कल का सवाल मिस हो जाएगा!',mw=bw-120;
   const s1=fit(l1,96,44,mw),s2=fit(l2,54,28,mw);
   c.textAlign='center';c.textBaseline='middle';
-  c.fillStyle='#e60012';c.font=`700 ${s1}px Poppins`;c.fillText(l1,W/2,by+bh*0.38);
-  c.fillStyle='#444';c.font=`700 ${s2}px Poppins`;c.fillText(l2,W/2,by+bh*0.75);
+  c.fillStyle=PAL.hl;c.font=`700 ${s1}px Poppins`;c.fillText(l1,W/2,by+bh*0.38);
+  c.fillStyle=PAL.s2t;c.font=`700 ${s2}px Poppins`;c.fillText(l2,W/2,by+bh*0.75);
+  {const wm=($('chn')||{}).value;if(wm){c.font='700 54px Poppins';c.fillStyle=PAL.s2t;c.fillText(wm.slice(0,40),W/2,2535)}}
   c.textBaseline='top';c.textAlign='left';
   c.restore();
 }
@@ -508,11 +532,10 @@ function chips(){
 ['q','hl','hlmode'].forEach(i=>$(i).addEventListener('input',chips));
 $('hlmode').addEventListener('change',chips);
 const ctx=cv.getContext('2d');
-function draw(){if(liveRaf){liveKey='';return}const ff=$('fmt').value;if(ff==='cur'){renderCur(ctx,curItem(),showAns?QD+0.7:QD-0.3);return}
-  if(ff==='oldcur'){const it=curItem(),el=showAns?QD+0.8:QD-0.3;it.mo=true;render(ctx,{...it,ans:showAns,cur:true,m:{t:showAns?0.8:QD-0.3-(HKE-0.2)}});fxFrame(ctx,el,1,it);return}render(ctx,state(showAns))}
+function draw(){if(liveRaf){liveKey='';return}render(ctx,state(showAns))}
 let t;const redraw=()=>{clearTimeout(t);t=setTimeout(draw,60)};
-['hlmode','q','hl','oa','ob','oc','od','ans','qno','zoom','px','py','hook'].forEach(i=>$(i).addEventListener('input',redraw));
-$('fmt').addEventListener('change',()=>draw());$('sty').addEventListener('change',()=>draw());$('vlen').addEventListener('change',()=>draw());
+['hlmode','q','hl','oa','ob','oc','od','ans','qno','zoom','px','py'].forEach(i=>$(i).addEventListener('input',redraw));
+$('vlen').addEventListener('change',()=>draw());$('pal').addEventListener('change',()=>draw());
 
 $('tq').onclick=()=>{showAns=false;$('tq').classList.add('on');$('ta').classList.remove('on');draw()};
 $('ta').onclick=()=>{showAns=true;$('ta').classList.add('on');$('tq').classList.remove('on');draw()};
@@ -705,22 +728,19 @@ function showSong(){$('songname').textContent=songData?'🎵 '+songData.name+' (
 $('song').onchange=async()=>{const f=$('song').files[0];if(!f)return;songData={name:f.name,ab:await f.arrayBuffer()};showSong();try{await idbSet('song',songData)}catch(e){$('songname').textContent+=' (browser mein save nahi ho paya)'}};
 $('songrm').onclick=async()=>{songData=null;$('song').value='';try{await idbSet('song',null)}catch(e){}showSong()};
 (async()=>{try{const d=await idbGet('song');if(d&&d.ab)songData=d}catch(e){}showSong()})();
-function drawCount(c,remain,sc){const cx=265*sc,cy=1060*sc,r=150*sc;c.lineWidth=26*sc;c.strokeStyle='#e6e6e6';c.beginPath();c.arc(cx,cy,r,0,Math.PI*2);c.stroke();c.strokeStyle='#e60012';c.lineCap='round';c.beginPath();c.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+Math.PI*2*(remain/QD));c.stroke();c.fillStyle='#000';c.textAlign='center';c.textBaseline='middle';c.font='700 '+(170*sc)+'px Poppins';c.fillText(String(Math.ceil(remain)),cx,cy+6*sc)}
+function drawCount(c,remain,sc){const cx=265*sc,cy=1060*sc,r=150*sc;c.lineWidth=26*sc;c.strokeStyle=PAL.track;c.beginPath();c.arc(cx,cy,r,0,Math.PI*2);c.stroke();c.strokeStyle=PAL.bar;c.lineCap='round';c.beginPath();c.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+Math.PI*2*(remain/QD));c.stroke();c.fillStyle=PAL.txt;c.textAlign='center';c.textBaseline='middle';c.font='700 '+(170*sc)+'px Poppins';c.fillText(String(Math.ceil(remain)),cx,cy+6*sc)}
 function stopLive(){cancelAnimationFrame(liveRaf);liveRaf=0;$('live').textContent=liveLabel();draw()}
 $('live').onclick=()=>{
   if(liveRaf){stopLive();return}
-  applyLen();$('live').textContent='⏹ Roko';const t0=performance.now();liveKey='';const it=state(false);it.hook=$('hook').value.trim()||hookFor(it.qno);it.fmt=$('fmt').value;it.mo=$('mo').checked||it.fmt==='oldcur';it.chook=$('hook').value.trim()||CHOOKS[(+it.qno||0)%CHOOKS.length];it.nextq=BANK[(cur+1)%BANK.length].q;
+  applyLen();$('live').textContent='⏹ Roko';const t0=performance.now();liveKey='';const it=state(false);it.mo=$('mo').checked;
   const base=document.createElement('canvas');base.width=W;base.height=H;const bx=base.getContext('2d');
   const fr=()=>{const el=((performance.now()-t0)/1000)%(QD+AD),isQ=el<QD,key=(isQ?'q':'a');
-    if(it.fmt==='cur'){renderCur(ctx,{...it,photo:photo},el);liveRaf=requestAnimationFrame(fr);return}
-    if(it.mo)render(bx,{...state(!isQ),cur:it.fmt==='oldcur',m:{t:isQ?(it.fmt==='oldcur'?Math.max(0,el-(HKE-0.2)):el):el-QD}});
+    if(it.mo)render(bx,{...state(!isQ),m:{t:isQ?el:el-QD}});
     else if(key!==liveKey){render(bx,state(!isQ));liveKey=key}
     ctx.drawImage(base,0,0);fxFrame(ctx,el,1,it);
     liveRaf=requestAnimationFrame(fr)};
   liveRaf=requestAnimationFrame(fr)};
 // ---------- engagement effects ----------
-const HOOKS=['5 सेकंड में बताओ!','क्या आप जानते हो?','चैलेंज: सही जवाब दो!','दिमाग लगाओ, जवाब बताओ!','99% लोग गलत बताते हैं!','सोचो, फिर बताओ!'];
-const hookFor=n=>HOOKS[(+n||0)%HOOKS.length];
 const bk=t=>{t=Math.min(Math.max(t,0),1);const s=1.70158;return 1+(s+1)*Math.pow(t-1,3)+s*Math.pow(t-1,2)};
 let _sd=20261115;const rnd=()=>{_sd=(_sd+0x6D2B79F5)|0;let t=Math.imul(_sd^(_sd>>>15),1|_sd);t=(t+Math.imul(t^(t>>>7),61|t))^t;return((t^(t>>>14))>>>0)/4294967296};
 const CONF=Array.from({length:80},()=>({x:rnd()*W,v:500+rnd()*800,d:rnd()*0.35,r:rnd()*6.28,rs:(rnd()-.5)*12,c:['#e53935','#fdd835','#43a047','#1e88e5','#fb8c00','#8e24aa'][Math.floor(rnd()*6)],w:16+rnd()*14,h:9+rnd()*8}));
@@ -729,36 +749,21 @@ function bubbleP(c,x,y,s){rr(c,x-s,y-s*.75,s*2,s*1.4,s*.35);c.fill();c.beginPath
 function applyLen(){const v=(($('vlen')&&$('vlen').value)||'7+3').split('+');QD=+v[0];AD=+v[1]}
 const liveLabel=()=>'▶ Live dekho ('+(QD+AD)+' sec)';
 function fxFrame(c,el,sc,item){
-  c.save();c.scale(sc,sc);
+  setPal();c.save();c.scale(sc,sc);
   const total=QD+AD,isQ=el<QD;
   if(isQ){const rm=QD-el;if(item&&item.mo&&rm<=3){const ph=1-(rm%1),p=1+0.2*Math.max(0,1-ph*5);c.save();c.translate(265,1060);c.scale(p,p);c.translate(-265,-1060);drawCount(c,rm,1);c.restore()}else drawCount(c,rm,1)}
   if($('fx').checked){
     // progress bar (top)
-    c.fillStyle='#e60012';c.fillRect(0,0,W*Math.min(el/total,1),16);
+    c.fillStyle=PAL.bar;c.fillRect(0,0,W*Math.min(el/total,1),16);
     if(isQ){
       // options appear one by one
-      if(!(item&&item.mo))for(let i=0;i<4;i++){if(el<0.25+0.22*i){c.fillStyle='#fff';c.fillRect(60,1545+170*i,W-120,170)}}
-      // hook sticker
-      const hk='';   // hook sticker band (user ne mana kiya)
-      if(hk&&el<2.4&&!(item&&item.fmt==='oldcur')){
-        const s=el<0.55?bk((el-0.1)/0.45):(el>2.0?1-Math.min((el-2.0)/0.4,1):1);
-        if(s>0.01){
-          c.save();c.translate(275,745);c.rotate(-0.09);c.scale(s,s);
-          const ls=wrapWords(c,hk,'700 54px Poppins',400).map(r=>r.join(' '));
-          const h=ls.length*70+50;
-          c.fillStyle='#e60012';c.shadowColor='rgba(0,0,0,.3)';c.shadowBlur=18;c.shadowOffsetY=8;
-          rr(c,-230,-h/2,460,h,36);c.fill();c.shadowColor='transparent';
-          c.fillStyle='#fff';c.textAlign='center';c.textBaseline='middle';c.font='700 54px Poppins';
-          ls.forEach((t,k)=>c.fillText(t,0,-h/2+25+35+k*70));
-          c.restore();
-        }
-      }
+      if(!(item&&item.mo))for(let i=0;i<4;i++){if(el<0.25+0.22*i){c.fillStyle=PAL.bg;c.fillRect(60,1545+170*i,W-120,170)}}
       // comment-bait strip
-      c.fillStyle='#fff';c.fillRect(120,2250,W-240,240);
+      c.fillStyle=PAL.bg;c.fillRect(120,2250,W-240,240);
       c.font='700 66px Poppins';c.textAlign='left';c.textBaseline='middle';
       const tt='सही जवाब कमेंट में लिखो',tw=c.measureText(tt).width,x0=W/2-(tw+110)/2;
       c.fillStyle='#1e88e5';bubbleP(c,x0+40,2322+Math.sin(el*5)*5,38);
-      c.fillStyle='#222';c.fillText(tt,x0+110,2325);
+      c.fillStyle=PAL.sub;c.fillText(tt,x0+110,2325);
       const cols=['#e53935','#1e88e5','#43a047','#fb8c00'];
       for(let i=0;i<4;i++){
         const p=1+0.16*Math.max(0,Math.sin(el*6-i*1.1));
@@ -770,12 +775,12 @@ function fxFrame(c,el,sc,item){
       // FOMO subscribe strip (last 2.2 sec of question)
       if(el>=QD-2.2){
         const a=Math.min((el-(QD-2.2))/0.3,1),pu=1+0.06*Math.sin(el*9);
-        c.save();c.globalAlpha=a;c.fillStyle='#fff';c.fillRect(120,2250,W-240,240);
+        c.save();c.globalAlpha=a;c.fillStyle=PAL.bg;c.fillRect(120,2250,W-240,240);
         c.translate(W/2,2330);c.scale(pu,pu);
-        c.fillStyle='#e60012';c.shadowColor='rgba(230,0,18,.35)';c.shadowBlur=20;rr(c,-300,-68,600,136,68);c.fill();c.shadowColor='transparent';
+        c.fillStyle=PAL.btn;c.shadowColor='rgba(0,0,0,.25)';c.shadowBlur=20;rr(c,-300,-68,600,136,68);c.fill();c.shadowColor='transparent';
         c.fillStyle='#fff';c.font='700 62px Poppins';c.textAlign='center';c.textBaseline='middle';c.fillText('🔔 Subscribe',0,4);
         c.restore();
-        c.save();c.globalAlpha=a;c.fillStyle='#222';c.textAlign='center';c.textBaseline='middle';
+        c.save();c.globalAlpha=a;c.fillStyle=PAL.sub;c.textAlign='center';c.textBaseline='middle';
         let fs=46;do{c.font=`700 ${fs}px Poppins`;fs-=2}while(c.measureText('वरना अगला सवाल नहीं पहुँचेगा!').width>W-300&&fs>26);
         c.fillText('वरना अगला सवाल नहीं पहुँचेगा!',W/2,2440);c.restore();
       }
@@ -783,238 +788,25 @@ function fxFrame(c,el,sc,item){
       const tA=el-QD;
       if(item&&item.mo&&tA<0.14){c.fillStyle='rgba(255,255,255,'+(0.85*(1-tA/0.14))+')';c.fillRect(0,0,W,H)}
       // ANSWER NAHI DIKHANA: sirf CTA - comment me jawab + Subscribe
-      c.fillStyle='#fff';c.fillRect(100,2235,W-200,320);
+      c.fillStyle=PAL.bg;c.fillRect(100,2235,W-200,320);
       const ea=Math.min(Math.max(tA/0.35,0),1);
       c.save();c.globalAlpha=ea;c.translate(0,(1-ea)*40);
       c.textAlign='center';c.textBaseline='middle';
       { const t1='सही जवाब कमेंट में लिखो 👇';let f1=62;do{c.font=`700 ${f1}px Poppins`;f1-=2}while(c.measureText(t1).width>W-420&&f1>30);
         const w1=c.measureText(t1).width;c.fillStyle='#1e88e5';bubbleP(c,W/2-w1/2-70,2298+Math.sin(tA*6)*4,34);
-        c.fillStyle='#222';c.fillText(t1,W/2+40,2300); }
+        c.fillStyle=PAL.sub;c.fillText(t1,W/2+40,2300); }
       { const t2='चैनल को Subscribe करो, वरना सवाल आप तक नहीं पहुँचेगा!';let f2=46;do{c.font=`700 ${f2}px Poppins`;f2-=2}while(c.measureText(t2).width>W-280&&f2>24);
-        c.fillStyle='#e60012';c.fillText(t2,W/2,2385); }
+        c.fillStyle=PAL.btn;c.fillText(t2,W/2,2385); }
       { const pu=1+0.05*Math.sin(tA*8);c.save();c.translate(W/2,2475);c.scale(pu,pu);
-        c.fillStyle='#e60012';c.shadowColor='rgba(230,0,18,.35)';c.shadowBlur=18;rr(c,-260,-45,520,90,45);c.fill();c.shadowColor='transparent';
+        c.fillStyle=PAL.btn;c.shadowColor='rgba(0,0,0,.25)';c.shadowBlur=18;rr(c,-260,-45,520,90,45);c.fill();c.shadowColor='transparent';
         c.fillStyle='#fff';c.font='700 50px Poppins';c.fillText('🔔 Subscribe',0,3);c.restore(); }
       c.restore();
     }
   }
-  if(item&&item.fmt==='oldcur'){
-    const rem=QD-el;
-    // teaser strip: tomorrow's question
-    const te=eo((el-QD*0.35)/0.5);
-    if(te>0.01){c.save();c.globalAlpha=te;c.translate(0,(1-te)*80);
-      c.fillStyle='#fff';c.fillRect(100,2235,W-200,290);
-      c.fillStyle='#f4f5f7';rr(c,150,2250,W-300,262,36);c.fill();c.lineWidth=4;c.strokeStyle='#dcdfe5';rr(c,152,2252,W-304,258,34);c.stroke();
-      c.textAlign='center';c.textBaseline='middle';c.fillStyle='#555';c.font='700 40px Poppins';c.fillText('कल का सवाल — बहुत मुश्किल! 🔒',W/2,2298);
-      const nw=(item.nextq||'').replace(/[?।]/g,'').trim().split(/\s+/).slice(0,4).join(' ')+' … ???';
-      let f3=54;do{c.font=`700 ${f3}px Poppins`;f3-=2}while(c.measureText(nw).width>W-420&&f3>28);
-      c.fillStyle='#000';c.fillText(nw,W/2,2364);
-      const pu=1+0.04*Math.sin(el*8);c.save();c.translate(W/2,2450);c.scale(pu,pu);
-      c.fillStyle='#e60012';rr(c,-400,-38,800,76,38);c.fill();c.fillStyle='#fff';{const sp='🔔 कल का सवाल पाने को Subscribe करो';let f4=38;do{c.font=`700 ${f4}px Poppins`;f4-=2}while(c.measureText(sp).width>740&&f4>22);c.fillText(sp,0,3)}c.restore();
-      c.restore()}
-    // tension vignette (last 3 sec)
-    if(el<QD&&rem<3&&rem>0){const ramp=(3-rem)/3,ph=1-(rem%1),beat=Math.max(0,1-ph*3.5),a=0.2*ramp+0.25*beat*ramp;
-      const vg=c.createRadialGradient(W/2,H/2,H*0.32,W/2,H/2,H*0.78);vg.addColorStop(0,'rgba(200,0,20,0)');vg.addColorStop(1,'rgba(200,0,20,'+a+')');c.fillStyle=vg;c.fillRect(0,0,W,H)}
-    // scene 1: hook on yellow
-    if(el<HKE){
-      const fa=el>HKE-0.25?Math.max((HKE-el)/0.25,0):1;c.save();c.globalAlpha=fa;c.fillStyle='#ffeb3b';c.fillRect(0,0,W,H);
-      c.save();c.translate(W/2,1150);c.rotate(Math.sin(el*2)*0.08);c.fillStyle='rgba(230,0,18,0.10)';c.font='700 1500px Poppins';c.textAlign='center';c.textBaseline='middle';c.fillText('?',0,0);c.restore();
-      const hk=item.chook||CHOOKS[0],hs=Math.max(bk(el/0.5),0)*(1+0.03*el);
-      c.save();c.translate(W/2,1000);c.scale(hs,hs);c.rotate((1-Math.min(el/0.5,1))*-0.08);
-      let fs=132,lines;for(;fs>=60;fs-=6){lines=wrapWords(c,hk,`700 ${fs}px Poppins`,1150);if(lines.length<=3)break}
-      c.font=`700 ${fs}px Poppins`;c.textAlign='center';c.textBaseline='middle';
-      lines.forEach((ln,i)=>{c.fillStyle=i===0?'#000':'#e60012';c.fillText(ln.join(' '),0,(i-(lines.length-1)/2)*fs*1.25)});
-      c.restore();
-      if(el>0.6){c.globalAlpha=fa*eo((el-0.6)/0.3);c.fillStyle='#333';c.font='700 60px Poppins';c.textAlign='center';c.textBaseline='middle';c.fillText('👀 जवाब सबसे आखिर में…',W/2,1560)}
-      c.restore();
-    }
-  }
+  if($('loop').checked){const tl=total-el,fa=Math.max(tl<0.45?1-tl/0.45:0,el<0.2?1-el/0.2:0);if(fa>0){c.globalAlpha=fa;c.fillStyle=PAL.bg;c.fillRect(0,0,W,H);c.globalAlpha=1}}
   c.restore();
 }
 
-// ---------- CURIOSITY FORMAT ----------
-const HKE=1.6;const isCA=f=>f==='cur'||f==='oldcur';
-const CHOOKS=['क्या तुम बता पाओगे?','सिर्फ़ तेज़ दिमाग वाले जानते हैं!','ध्यान से देखो, जवाब छुपा है!','पहले अपना जवाब सोचो!','5 सेकंड, एक सवाल!','जवाब अंत में, रुको!'];
-const PXc=document.createElement('canvas'),PXx=PXc.getContext('2d');
-function curPhoto(c,cx,cy,R,st,n){
-  const D=2*R;c.save();c.beginPath();c.arc(cx,cy,R,0,7);c.clip();
-  if(n>=D*0.98){
-    if(st.photo){const sc=Math.max(D/st.photo.width,D/st.photo.height)*(st.zoom||1),w=st.photo.width*sc,h=st.photo.height*sc;c.drawImage(st.photo,cx-w/2+(st.px||0)*D,cy-h/2+(st.py||0)*D,w,h)}
-    else{c.translate(cx-R,cy-R);drawDesign(c,D)}
-  }else{
-    n=Math.max(6,Math.round(n));PXc.width=n;PXc.height=n;
-    if(st.photo){const sc=Math.max(n/st.photo.width,n/st.photo.height)*(st.zoom||1),w=st.photo.width*sc,h=st.photo.height*sc;PXx.drawImage(st.photo,n/2-w/2+(st.px||0)*n,n/2-h/2+(st.py||0)*n,w,h)}
-    else drawDesign(PXx,n);
-    c.imageSmoothingEnabled=false;c.drawImage(PXc,0,0,n,n,cx-R,cy-R,D,D);c.imageSmoothingEnabled=true;
-  }
-  c.restore();
-}
-function lockIcon(c,x,y,sz,open,col){
-  c.save();c.translate(x,y);c.fillStyle=col;c.strokeStyle=col;c.lineWidth=sz*0.17;c.lineCap='round';
-  c.save();if(open)c.translate(0,-sz*0.22);
-  c.beginPath();c.moveTo(-sz*.32,-sz*.02);c.lineTo(-sz*.32,-sz*.28);c.arc(0,-sz*.28,sz*.32,Math.PI,0);if(!open)c.lineTo(sz*.32,-sz*.02);c.stroke();c.restore();
-  rr(c,-sz*.5,-sz*.04,sz,sz*.78,sz*.14);c.fill();
-  c.fillStyle='#1b1448';c.beginPath();c.arc(0,sz*.3,sz*.09,0,7);c.fill();
-  c.restore();
-}
-function fitQ(c,text,maxw,maxh,s0){let s=s0||92,lines;for(;s>=44;s-=4){lines=wrapWords(c,text,`700 ${s}px Poppins`,maxw);if(lines.length<=4&&lines.length*s*1.3<=maxh)break}if(s<44)s=44;return{s,lines}}
-function hs(c,x,y,w,h,r,fill,off,bw){c.fillStyle='#111';rr(c,x+off,y+off,w,h,r);c.fill();c.fillStyle=fill;rr(c,x,y,w,h,r);c.fill();c.lineWidth=bw;c.strokeStyle='#111';rr(c,x,y,w,h,r);c.stroke()}
-function freshPhoto(c,x,y,S,st,n){
-  c.save();rr(c,x,y,S,S,window.PR||46);c.clip();
-  if(n>=S*0.98){
-    if(st.photo){const sc=Math.max(S/st.photo.width,S/st.photo.height)*(st.zoom||1),w=st.photo.width*sc,h=st.photo.height*sc;c.drawImage(st.photo,x+S/2-w/2+(st.px||0)*S,y+S/2-h/2+(st.py||0)*S,w,h)}
-    else{c.translate(x,y);drawDesign(c,S)}
-  }else{
-    n=Math.max(6,Math.round(n));PXc.width=n;PXc.height=n;
-    if(st.photo){const sc=Math.max(n/st.photo.width,n/st.photo.height)*(st.zoom||1),w=st.photo.width*sc,h=st.photo.height*sc;PXx.drawImage(st.photo,n/2-w/2+(st.px||0)*n,n/2-h/2+(st.py||0)*n,w,h)}
-    else drawDesign(PXx,n);
-    c.imageSmoothingEnabled=false;c.drawImage(PXc,0,0,n,n,x,y,S,S);c.imageSmoothingEnabled=true;
-  }
-  c.restore();
-}
-// ===== FRESH template: bright poster / neo-pop style =====
-const STY={
- a:{bg:'#FAF3E6',ink:'#2B1B14',mut:'#8A5A3C',acc:'#C8553D',card:'#FFFFFF',line:'#E8DCC8',on:'#FFFFFF',pr:46,grid:0,dk:0},
- b:{bg:'#151A23',ink:'#F3F4F6',mut:'#9AA3B2',acc:'#F2C14E',card:'#1F2633',line:'#303A4D',on:'#151A23',pr:46,grid:1,dk:1},
- c:{bg:'#1F3D2F',ink:'#F7F3E3',mut:'#BFD3C2',acc:'#F5D76E',card:'#2A4D3C',line:'#4B7560',on:'#1F3D2F',pr:320,grid:0,dk:1},
- e:{bg:'#0B2A6F',ink:'#FFFFFF',mut:'#BBD0FF',acc:'#FFC400',card:'#123A8F',line:'#2F5BC0',on:'#0B2A6F',pr:46,grid:0,dk:1},
- f:{bg:'#FFC93C',ink:'#1B1B1B',mut:'#5A3E00',acc:'#C62828',card:'#FFFFFF',line:'#E0A800',on:'#FFFFFF',pr:46,grid:1,dk:0},
- d:{bg:'#F5F8FF',ink:'#0F172A',mut:'#64748B',acc:'#2563EB',card:'#FFFFFF',line:'#D6E0F5',on:'#FFFFFF',pr:46,grid:1,dk:0}
-};
-// ===== TYPE-ON: text upar se neeche likhta jayega (pehle hide) =====
-const _seg=(typeof Intl!=='undefined'&&Intl.Segmenter)?new Intl.Segmenter('hi',{granularity:'grapheme'}):null;
-function gsplit(str){str=String(str);return _seg?Array.from(_seg.segment(str),x=>x.segment):Array.from(str)}
-// full text ke hisaab se jagah fix rehti hai, sirf utne akshar dikhte hain jitne `n` hain
-function typeText(c,str,x,y,n,align){
-  const g=gsplit(str),full=g.join(''),k=Math.max(0,Math.min(g.length,Math.floor(n)));
-  if(k<=0)return;
-  const wF=c.measureText(full).width;
-  c.save();c.textAlign='left';
-  const x0=align==='center'?x-wF/2:align==='right'?x-wF:x;
-  c.fillText(g.slice(0,k).join(''),x0,y);c.restore();
-  return x0+c.measureText(g.slice(0,k).join('')).width;
-}
-function caret(c,x,y,h,col,t){if(Math.floor(t*4)%2)return;c.save();c.fillStyle=col;c.fillRect(x+4,y-h/2,6,h);c.restore()}
-function renderCur(c,st,t){
-  // simple, calm, human-made looks (4 styles, picked in #sty)
-  const Th=STY[($('sty')||{}).value]||STY.a;window.PR=Th.pr;
-  const Q=QD,tot=QD+AD,rem=Q-t,cx=W/2,S=640,px0=cx-S/2,py0=770;
-  c.imageSmoothingEnabled=true;c.imageSmoothingQuality='medium';
-  c.fillStyle=Th.bg;c.fillRect(0,0,W,H);
-  c.fillStyle=Th.acc;c.fillRect(0,0,W*Math.min(t/tot,1),10);
-  // ---- typing timeline (T sec mein sab text likha jata hai) ----
-  const T=Math.min(5.5,Math.max(2.5,Q-1)),E=0.12; // E: shuru mein thoda khali screen
-  const ph=(a,b)=>Math.min(1,Math.max(0,(t-E-a*T)/((b-a)*T)));   // phase progress 0..1
-  c.textBaseline='middle';c.fillStyle=Th.mut;c.font='700 44px Poppins';c.textAlign='left';
-  // 1) header (sabse upar)
-  const hd=(SUBS[st.sub]||SUBS.gk).h+' क्विज़ #'+(st.qno||''),hn=gsplit(hd).length*ph(0,0.07);
-  const hx=typeText(c,hd,80,100,hn,'left');
-  // 2) question (upar se neeche, line by line, akshar akshar)
-  const qcy=640;
-  const fq=fitQ(c,st.q,1250,600,120),hls=new Set((st.hl||'').trim().split(/\s+/).filter(Boolean));
-  c.font=`700 ${fq.s}px Poppins`;c.textAlign='left';
-  let yy=qcy-(fq.lines.length*fq.s*1.3)/2+fq.s*0.65;
-  const qTot=fq.lines.reduce((a,ln)=>a+gsplit(ln.join(' ')).length,0);
-  let left=qTot*ph(0.07,0.45),lastX=0,lastY=0,typingQ=left>0&&left<qTot;
-  for(const ln of fq.lines){
-    let x=cx-c.measureText(ln.join(' ')).width/2;
-    for(const w of ln){
-      const gl=gsplit(w+' ').length;
-      if(left>0){
-        c.fillStyle=(hls.size&&hls.has(w.replace(/[?,।.‘’“”]/g,'')))?Th.acc:Th.ink;
-        const k=Math.min(gl,left);
-        const gg=gsplit(w+' ').slice(0,Math.ceil(k)).join('');
-        c.fillText(gg.trimEnd?gg:gg,x,yy);
-        lastX=x+c.measureText(gg.replace(/\s+$/,'')).width;lastY=yy;
-        left-=gl;
-      }
-      x+=c.measureText(w+' ').width;
-    }
-    yy+=fq.s*1.3;
-  }
-  if(typingQ)caret(c,lastX,lastY,fq.s*0.9,Th.acc,t);
-  // photo / design circle (text nahi hai, pehle jaisa)
-  // ---- TIMER CIRCLE (image ki jagah): ghadi jaisa ring + bada number, gol + shadow ----
-  {
-    const x0=Math.min(1,Math.max(0,(t-0.15)/0.7)),k1=x0-1;
-    const back=x0>=1?1:1+2.70158*k1*k1*k1+1.70158*k1*k1;
-    const R=260,ccy=1185,sp=0.8+0.2*back;
-    const fr=Math.min(1,Math.max(0,rem/Q));
-    const pulse=(rem>0&&rem<=3)?1+0.08*Math.max(0,1-(1-(rem%1))*4):1;
-    c.save();c.globalAlpha=Math.min(1,x0*2.2);
-    c.translate(cx,ccy);c.scale(sp*pulse,sp*pulse);
-    c.save();c.shadowColor='rgba(0,0,0,.28)';c.shadowBlur=50;c.shadowOffsetY=20;c.fillStyle=Th.dk?Th.card:'#fff';c.beginPath();c.arc(0,0,R,0,7);c.fill();c.restore();
-    c.lineWidth=26;c.lineCap='round';c.strokeStyle=Th.line;c.beginPath();c.arc(0,0,R-36,0,7);c.stroke();
-    if(fr>0){c.strokeStyle=(rem<=3)?'#E53935':Th.acc;c.beginPath();c.arc(0,0,R-36,-Math.PI/2,-Math.PI/2+Math.PI*2*fr);c.stroke()}
-    c.fillStyle=Th.ink;c.textAlign='center';c.textBaseline='middle';c.font='700 200px Poppins';
-    if(rem>0){c.fillText(String(Math.ceil(rem)),0,-10);c.font='700 40px Poppins';c.fillStyle=Th.mut;c.fillText('सेकंड',0,110)}
-    else c.fillText('?',0,0);
-    c.restore();
-  }
-  // 3) options A, B, C, D ek ek karke
-  st.opts.forEach((v,i)=>{
-    const a0=0.45+i*0.1,p=ph(a0,a0+0.1),box=eo(ph(a0-0.03,a0+0.03)*1);
-    if(p<=0&&box<=0)return;
-    c.globalAlpha=box;
-    c.fillStyle=Th.card;c.strokeStyle=Th.line;c.lineWidth=3;
-    const val=String(v),vn=gsplit(val).length*p;
-    if(Th.grid){
-      const gx=[90,739][i%2],gy=1530+Math.floor(i/2)*270;
-      rr(c,gx,gy,620,240,30);c.fill();c.stroke();
-      c.fillStyle=Th.acc;c.beginPath();c.arc(gx+310,gy+64,40,0,7);c.fill();
-      c.globalAlpha=1;
-      c.fillStyle=Th.on;c.font='700 44px Poppins';
-      if(p>0)typeText(c,'ABCD'[i],gx+310,gy+68,1,'center');
-      let f=66;do{c.font=`700 ${f}px Poppins`;f-=4}while(c.measureText(val).width>560&&f>30);
-      c.fillStyle=Th.ink;
-      const ex=typeText(c,val,gx+310,gy+160,vn,'center');
-      if(p>0&&p<1&&ex!=null)caret(c,ex,gy+160,f*1.0,Th.acc,t);
-    }else{
-      const oy=1530+i*150;
-      rr(c,90,oy,1269,130,30);c.fill();c.stroke();
-      c.fillStyle=Th.acc;c.beginPath();c.arc(160,oy+65,40,0,7);c.fill();
-      c.globalAlpha=1;
-      c.fillStyle=Th.on;c.font='700 44px Poppins';
-      if(p>0)typeText(c,'ABCD'[i],160,oy+69,1,'center');
-      let f=74;do{c.font=`700 ${f}px Poppins`;f-=4}while(c.measureText(val).width>980&&f>40);
-      c.fillStyle=Th.ink;
-      const ex=typeText(c,val,225,oy+68,vn,'left');
-      if(p>0&&p<1&&ex!=null)caret(c,ex,oy+68,f*1.0,Th.acc,t);
-    }
-    c.globalAlpha=1;
-  });
-  // 4) sabse neeche: comment line, phir Subscribe
-  c.globalAlpha=1;c.fillStyle=Th.mut;c.font='700 52px Poppins';
-  const ct='सही जवाब कमेंट में लिखो',cp=ph(0.85,0.96);
-  const cxe=typeText(c,ct,cx,2290,gsplit(ct).length*cp,'center');
-  if(cp>0&&cp<1&&cxe!=null)caret(c,cxe,2290,52,Th.acc,t);
-  const sp=ph(0.94,1);
-  if(sp>0){
-    c.globalAlpha=eo(sp*2);c.fillStyle=Th.acc;rr(c,cx-300,2350,600,90,45);c.fill();
-    c.globalAlpha=1;c.fillStyle=Th.on;c.font='700 42px Poppins';
-    typeText(c,'Subscribe करो',cx,2397,gsplit('Subscribe करो').length*sp,'center');
-  }
-  c.globalAlpha=1;
-}
-
-const curItem=()=>{const it=state(false);it.fmt=$('fmt').value;it.chook=$('hook').value.trim()||CHOOKS[(+it.qno||0)%CHOOKS.length];it.nextq=BANK[(cur+1)%BANK.length].q;return it};
-function addSfxCur(ac,QDs,old){
-  const out=ac.destination;
-  const whoosh=(w,d,v)=>{const n=Math.floor(ac.sampleRate*d),b=ac.createBuffer(1,n,ac.sampleRate),a=b.getChannelData(0);for(let i=0;i<n;i++)a[i]=Math.random()*2-1;
-    const s=ac.createBufferSource();s.buffer=b;const f=ac.createBiquadFilter();f.type='bandpass';f.Q.value=1.2;f.frequency.setValueAtTime(400,w);f.frequency.exponentialRampToValueAtTime(3500,w+d);
-    const g=ac.createGain();g.gain.setValueAtTime(0.0001,w);g.gain.linearRampToValueAtTime(v,w+d*0.4);g.gain.exponentialRampToValueAtTime(0.001,w+d);s.connect(f);f.connect(g);g.connect(out);s.start(w);s.stop(w+d+0.05)};
-  const sweep=(w,f0,f1,d,v,ty)=>{const o=ac.createOscillator(),g=ac.createGain();o.type=ty||'sine';o.frequency.setValueAtTime(f0,w);o.frequency.exponentialRampToValueAtTime(f1,w+d);g.gain.setValueAtTime(v,w);g.gain.exponentialRampToValueAtTime(0.001,w+d);o.connect(g);g.connect(out);o.start(w);o.stop(w+d+0.05)};
-  const chime=(w,base,v)=>{[1,2.76,5.4,8.9].forEach((m,i)=>{const o=ac.createOscillator(),g=ac.createGain();o.type='sine';o.frequency.value=base*m;g.gain.setValueAtTime(v/(i+1),w);g.gain.exponentialRampToValueAtTime(0.0005,w+1.2/(i*0.6+1));o.connect(g);g.connect(out);o.start(w);o.stop(w+1.3)})};
-  sweep(0.04,150,45,0.4,0.5);whoosh(0.0,0.45,0.12);                       // hook hit
-  { // tension riser
-    const o=ac.createOscillator(),g=ac.createGain();o.type='triangle';o.frequency.setValueAtTime(180,HKE);o.frequency.exponentialRampToValueAtTime(1100,QDs-0.05);
-    g.gain.setValueAtTime(0.0001,HKE);g.gain.linearRampToValueAtTime(0.07,QDs-0.2);g.gain.linearRampToValueAtTime(0.0001,QDs);o.connect(g);g.connect(out);o.start(HKE);o.stop(QDs);
-  }
-  whoosh(HKE-0.15,0.3,0.09);
-  for(let i=0;i<4;i++)sweep(old?(HKE-0.2+0.55+i*0.2):(HKE-0.2+1.2+i*0.25+0.1),600,950,0.09,0.12);     // option pops
-  for(let k=0;k<3;k++){const b=QDs-3+k;if(b<HKE)continue;sweep(b,130,50,0.18,0.45);sweep(b+0.22,120,50,0.16,0.3)}  // heartbeat
-  sweep(QDs,140,40,0.4,0.6);whoosh(QDs-0.05,0.25,0.12);chime(QDs+0.02,880,0.24);sweep(QDs+0.05,1200,2600,0.25,0.08); // reveal
-}
 // ---------- synthesized sound effects (no files, no copyright) ----------
 function addSfx(ac,QDs){
   const out=ac.destination;
@@ -1042,10 +834,9 @@ async function makeMp4(item,buf,onProg){
   let last=null;
   for(let i=0;i<total*FPS;i++){
     const el=i/FPS,isQ=el<QD;
-    if(item.fmt==='cur'){}else if(item.mo||item.fmt==='oldcur'){bctx.setTransform(1,0,0,1,0,0);bctx.clearRect(0,0,VW,VH);bctx.scale(sc,sc);render(bctx,{...item,ans:!isQ,cur:item.fmt==='oldcur',m:{t:isQ?(item.fmt==='oldcur'?Math.max(0,el-(HKE-0.2)):el):el-QD}});bctx.setTransform(1,0,0,1,0,0)}
+    if(item.mo){bctx.setTransform(1,0,0,1,0,0);bctx.clearRect(0,0,VW,VH);bctx.scale(sc,sc);render(bctx,{...item,ans:!isQ,m:{t:isQ?el:el-QD}});bctx.setTransform(1,0,0,1,0,0)}
     else if(last!==isQ){base(!isQ);last=isQ}
-    if(item.fmt==='cur'){rctx.setTransform(sc,0,0,sc,0,0);renderCur(rctx,item,el);rctx.setTransform(1,0,0,1,0,0)}
-    else{rctx.drawImage(bc,0,0);fxFrame(rctx,el,sc,item)}
+    rctx.drawImage(bc,0,0);fxFrame(rctx,el,sc,item);
     if(i%15===0)ctx.drawImage(rc,0,0,W,H);
     const fr=new VideoFrame(rc,{timestamp:Math.round(i*1e6/FPS),duration:Math.round(1e6/FPS)});
     ve.encode(fr,{keyFrame:i%(FPS*2)===0});fr.close();
@@ -1055,11 +846,11 @@ async function makeMp4(item,buf,onProg){
   }
   await ve.flush();
   const oac=new OfflineAudioContext(2,SR*total,SR);
-  if(item.voice){const vs=oac.createBufferSource();vs.buffer=item.voice;const vg=oac.createGain();vg.gain.value=1;vs.connect(vg);vg.connect(oac.destination);vs.start(item.fmt==='oldcur'?HKE:0.3)}
+  if(item.voice){const vs=oac.createBufferSource();vs.buffer=item.voice;const vg=oac.createGain();vg.gain.value=1;vs.connect(vg);vg.connect(oac.destination);vs.start(0.3)}
   if(item.voiceA){const va=oac.createBufferSource();va.buffer=item.voiceA;const vag=oac.createGain();vag.gain.value=1;va.connect(vag);vag.connect(oac.destination);va.start(QD+0.35)}
   if(buf){const sn=oac.createBufferSource();sn.buffer=buf;sn.loop=true;const g=oac.createGain(),vl=+$('vol').value*(item.voice?0.35:1);g.gain.setValueAtTime(vl,0);g.gain.setValueAtTime(vl,total-0.8);g.gain.linearRampToValueAtTime(0.0001,total);sn.connect(g);g.connect(oac.destination);sn.start(0)}
-  if($('tick').checked&&item.fmt!=='oldcur'){for(let k=item.voice?Math.max(0,QD-3):0;k<QD;k++)beep(oac,oac.destination,k+0.05,k>=QD-3?1000:700,.08,.25);if(!item.sfx){beep(oac,oac.destination,QD+0.05,1250,.5,.35);beep(oac,oac.destination,QD+0.2,1600,.5,.3)}}
-  if(item.sfx){if(item.fmt==='oldcur')addSfxCur(oac,QD,true);else addSfx(oac,QD)}
+  if($('tick').checked){for(let k=item.voice?Math.max(0,QD-3):0;k<QD;k++)beep(oac,oac.destination,k+0.05,k>=QD-3?1000:700,.08,.25);if(!item.sfx){beep(oac,oac.destination,QD+0.05,1250,.5,.35);beep(oac,oac.destination,QD+0.2,1600,.5,.3)}}
+  if(item.sfx)addSfx(oac,QD)
   const ab=await oac.startRendering();
   const ae=new AudioEncoder({output:(c,m)=>muxer.addAudioChunk(c,m),error:e=>err=e});
   ae.configure({codec:'mp4a.40.2',sampleRate:SR,numberOfChannels:2,bitrate:128000});
@@ -1076,27 +867,28 @@ const ttsText=it=>it.q.replace(/\s+/g,' ').trim()+' ... '+it.opts.map((o,i)=>'�
 const hsh=t=>{let h=5381;for(let i=0;i<t.length;i++)h=((h<<5)+h+t.charCodeAt(i))|0;return (h>>>0).toString(36)};
 try{['xk','vo','xm','xv'].forEach(k=>{if(localStorage.getItem('sq_'+k)===null&&localStorage.getItem('rq_'+k)!==null)localStorage.setItem('sq_'+k,localStorage.getItem('rq_'+k))})}catch(e){}
 try{$('xk').value=localStorage.getItem('sq_xk')||'';$('vo').checked=localStorage.getItem('sq_vo')==='1';const m=localStorage.getItem('sq_xm');if(m)$('xm').value=m;const v=localStorage.getItem('sq_xv');if(v){if(![...$('xv').options].some(o=>o.value===v)){const o=document.createElement('option');o.value=v;o.textContent=v;$('xv').appendChild(o)}$('xv').value=v}}catch(e){}
-const xsave=()=>{try{localStorage.setItem('sq_xk',$('xk').value.trim());localStorage.setItem('sq_vo',$('vo').checked?'1':'0');localStorage.setItem('sq_xm',$('xm').value);localStorage.setItem('sq_xv',$('xv').value)}catch(e){}};
+const xsave=()=>{try{localStorage.setItem('sq_xk',xkey());localStorage.setItem('sq_vo',$('vo').checked?'1':'0');localStorage.setItem('sq_xm',$('xm').value);localStorage.setItem('sq_xv',$('xv').value)}catch(e){}};
 ['xk','vo','xm','xv'].forEach(i=>$(i).addEventListener('change',xsave));$('xk').addEventListener('input',xsave);
 async function xErr(r){let d='';try{const j=await r.json();const x=j.detail;d=typeof x==='string'?x:(x&&(x.message||x.status))||JSON.stringify(j)}catch(e){}
   if(r.status===401)return 'API key galat hai ya uski permission nahi hai ('+d+')';
   if(/quota_exceeded|insufficient|credit/i.test(d)||r.status===402)return 'ElevenLabs ne credits ka error diya: '+d
   if(r.status===429)return 'Bahut jaldi requests, thodi der baad try karo';
   return 'ElevenLabs error '+r.status+': '+d}
-async function xCredits(){try{const r=await fetch('https://api.elevenlabs.io/v1/user/subscription',{headers:{'xi-api-key':$('xk').value.trim()}});if(!r.ok)return '';const j=await r.json();const left=j.character_limit-j.character_count;return ' | Credits bache: '+left}catch(e){return ''}}
+async function xCredits(){try{const r=await fetch('https://api.elevenlabs.io/v1/user/subscription',{headers:{'xi-api-key':xkey()}});if(!r.ok)return '';const j=await r.json();const left=j.character_limit-j.character_count;return ' | Credits bache: '+left}catch(e){return ''}}
+const xkey=()=>$('xk').value.split(/[\s,;]+/).filter(k=>k.length>10)[0]||'';
 async function ttsFetch(text){
-  const key=$('xk').value.trim();if(!key)throw new Error('ElevenLabs API key daalo');
+  const keys=$('xk').value.split(/[\s,;]+/).filter(k=>k.length>10);if(!keys.length)throw new Error('ElevenLabs API key daalo');
   const ck='tts:'+$('xm').value+':'+$('xv').value+':'+hsh(text);
   let ab=null;try{ab=await idbGet(ck)}catch(e){}
   if(!ab){
-    const r=await fetch('https://api.elevenlabs.io/v1/text-to-speech/'+$('xv').value+'?output_format=mp3_44100_128',{method:'POST',headers:{'xi-api-key':key,'Content-Type':'application/json'},body:JSON.stringify({text:text,model_id:$('xm').value})});
-    if(!r.ok)throw new Error(await xErr(r));
-    ab=await r.arrayBuffer();try{await idbSet(ck,ab)}catch(e){}
+    let le='';for(const key of keys){const r=await fetch('https://api.elevenlabs.io/v1/text-to-speech/'+$('xv').value+'?output_format=mp3_44100_128',{method:'POST',headers:{'xi-api-key':key,'Content-Type':'application/json'},body:JSON.stringify({text:text,model_id:$('xm').value})});
+      if(r.ok){ab=await r.arrayBuffer();break}le=await xErr(r)}
+    if(!ab)throw new Error(le||'Saari keys fail');try{await idbSet(ck,ab)}catch(e){}
   }
   return await new OfflineAudioContext(2,1,SR).decodeAudioData(ab.slice(0));
 }
 $('xload').onclick=async()=>{
-  const key=$('xk').value.trim();if(!key){$('xmsg').textContent='Pehle API key daalo.';return}
+  const key=xkey();if(!key){$('xmsg').textContent='Pehle API key daalo.';return}
   $('xmsg').textContent='Voices la raha hoon...';
   try{const r=await fetch('https://api.elevenlabs.io/v1/voices',{headers:{'xi-api-key':key}});if(!r.ok)throw new Error(await xErr(r));
     const j=await r.json(),keep=$('xv').value;$('xv').innerHTML='';
@@ -1106,7 +898,7 @@ $('xload').onclick=async()=>{
   catch(e){$('xmsg').textContent=e.message||'Voices load nahi hui'}
 };
 $('xkey').onclick=async()=>{
-  const key=$('xk').value.trim(),m=$('xmsg'),H={headers:{'xi-api-key':key}};
+  const key=xkey(),m=$('xmsg'),H={headers:{'xi-api-key':key}};
   if(!key){m.textContent='Pehle API key daalo';return}
   m.textContent='Key check ho rahi hai...';
   try{
@@ -1132,6 +924,7 @@ $('gnew').onclick=()=>{
 };
 $('vid').onclick=async()=>{
   const btn=$('vid'),msg=$('vmsg'),bar=$('vbar');
+  if($('tgs').checked){try{await tgReadPal()}catch(e){}}
   applyLen();
   if(liveRaf)stopLive();
   if(typeof VideoEncoder==='undefined'||typeof AudioEncoder==='undefined'||typeof Mp4Muxer==='undefined'){msg.textContent='Chrome (naya version) use karo aur internet on rakho, video encoder load nahi hua.';return}
@@ -1146,20 +939,22 @@ $('vid').onclick=async()=>{
     let buf=null;
     if(songData){msg.textContent='Sound load ho raha hai...';buf=await new OfflineAudioContext(2,1,SR).decodeAudioData(songData.ab.slice(0))}
     for(let v=0;v<picks.length;v++){
-      const idx=picks[v],b=BANK[idx],no=base0+v;
+      let idx=picks[v];const no=base0+v;window.AUTOI=no;
       msg.textContent='Video '+(v+1)+'/'+picks.length+': photo la raha hoon...';
       await (phP[idx]||getPh(idx));if(v+1<picks.length)phP[picks[v+1]]=getPh(picks[v+1]);
-      load(idx);
-      const item={...state(false),photo:photoCache[idx]||null,qno:no,hook:$('hook').value.trim()||hookFor(no),mo:$('mo').checked||$('fmt').value==='oldcur',sfx:$('sfx').checked,fmt:$('fmt').value,chook:$('hook').value.trim()||CHOOKS[(+no||0)%CHOOKS.length],nextq:BANK[(idx+1)%BANK.length].q};
+      while($('skp').checked&&photoCache[idx]===false){let nx=-1;for(let k=1;k<=BANK.length;k++){const i=(idx+k)%BANK.length;if(inSub(i)&&!isUsed(i)&&!picks.includes(i)){nx=i;break}}if(nx<0)break;msg.textContent='Photo nahi mili, agla sawal le raha hoon...';picks[v]=idx=nx;await getPh(idx)}
+      const b=BANK[idx];load(idx);
+      const item={...state(false),photo:photoCache[idx]||null,qno:no,mo:$('mo').checked,sfx:$('sfx').checked};
       const nm='quiz-'+String(no).padStart(3,'0');
       if($('wimg').checked){const off=document.createElement('canvas');off.width=W;off.height=H;const oc=off.getContext('2d');
         for(const an of [false,true]){render(oc,{...item,ans:an});files.push({name:nm+(an?'-answer':'')+'-v'+$('ver').value+'.png',blob:await blobOf(off)})}}
       const qdSave=QD,adSave=AD;let blob;
       try{
-        if($('vo').checked){msg.textContent='Video '+(v+1)+'/'+picks.length+': awaaz ban rahi hai...';const [vb,va]=await Promise.all([ttsFetch(ttsText(item)),ttsFetch(ansText(item))]);item.voice=vb;QD=Math.max(QD,Math.ceil(vb.duration+(item.fmt==='oldcur'?HKE:0.3)+1.2));item.voiceA=va;AD=Math.max(AD,Math.ceil(va.duration+0.9))}
+        if($('vo').checked){msg.textContent='Video '+(v+1)+'/'+picks.length+': awaaz ban rahi hai...';const [vb,va]=await Promise.all([ttsFetch(ttsText(item)),ttsFetch(ansText(item))]);item.voice=vb;QD=Math.max(QD,Math.ceil(vb.duration+0.3+1.2));item.voiceA=va;AD=Math.max(AD,Math.ceil(va.duration+0.9))}
         blob=await makeMp4(item,buf,p=>{bar.style.width=((v+p)/picks.length*100)+'%';msg.textContent='Video '+(v+1)+'/'+picks.length+' ban rahi hai... '+Math.round(p*100)+'%'});
       }finally{QD=qdSave;AD=adSave}
       files.push({name:nm+'-1080p-v'+$('ver').value+'.mp4',blob,txt:'#'+no+'\n'+genText(b)});
+      if($('tgs').checked){msg.textContent='Telegram pe bhej raha hoon...';try{await tgSendAll(blob,nm+'.mp4',no,{...b,q:item.q})}catch(e){msg.textContent='Telegram nahi gaya: '+e.message;await sleep(1500)}}
       markUsed(idx,no);
     }
     const vids=files.filter(x=>x.name.endsWith('.mp4'));
@@ -1169,20 +964,54 @@ $('vid').onclick=async()=>{
     
     save(out,name);bar.style.width='100%';$('qno').value=LAST+1;
     msg.textContent='Ho gaya ✓ '+picks.length+' video'+'. Title/Description ke Copy button neeche hain'+(picks.length>1?' (baaki ke titles ZIP ke txt mein)':'')+'.';
-  }catch(e){msg.textContent='Video nahi ban payi: '+(e&&e.message?e.message:e)}
-  btn.disabled=false;draw();
+  }catch(e){msg.textContent='Video nahi ban payi: '+(e&&e.message?e.message:e);if($('tgs').checked)tgCall('sendMessage',{chat_id:$('tgc').value.trim(),text:'⚠️ Video nahi bani: '+(e&&e.message?e.message:e)}).catch(()=>{})}
+  window.AUTOI=null;btn.disabled=false;draw();
 };
 
 (async()=>{try{await document.fonts.load('700 100px Poppins','Quiz गणित ✔')}catch(e){}const f0=BANK.findIndex((_,i)=>!isUsed(i));load(f0<0?0:f0);refreshPick()})();
 function setTheme(t){document.documentElement.dataset.theme=t;$('theme').textContent=t==='dark'?'☀️ Light':'🌙 Dark';try{localStorage.setItem('sq_theme16',t)}catch(e){}}
 let th='light';try{th=localStorage.getItem('sq_theme16')||'light'}catch(e){}
-const SETK=['fmt','vlen','sfx','mo','fx','tick','wimg','vn','vol','hook','mc'];
+const SETK=['chn','loop','skp','tgs','tgt','tgc','pal','vlen','sfx','mo','fx','tick','wimg','vn','vol','mc'];
 let SV={};try{SV=JSON.parse(localStorage.getItem('sq_set')||'{}')}catch(e){}
 SETK.forEach(k=>{const e=$(k);if(!(k in SV))return;if(e.type==='checkbox')e.checked=!!SV[k];else if(e.tagName!=='SELECT'||[...e.options].some(o=>o.value===SV[k]))e.value=SV[k]});
 const saveSet=()=>{const o={};SETK.forEach(k=>{const e=$(k);o[k]=e.type==='checkbox'?e.checked:e.value});try{localStorage.setItem('sq_set',JSON.stringify(o))}catch(e){}};
 SETK.forEach(k=>{$(k).addEventListener('change',saveSet);$(k).addEventListener('input',saveSet)});
 applyLen();$('live').textContent=liveLabel();$('vlen').onchange=()=>{applyLen();$('live').textContent=liveLabel()};
 setTheme(th);$('theme').onclick=()=>setTheme(document.documentElement.dataset.theme==='dark'?'light':'dark');
+
+// ---------- Telegram + history backup ----------
+async function tgCall(m,body,form){const r=await fetch('https://api.telegram.org/bot'+$('tgt').value.trim()+'/'+m,form?{method:'POST',body}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const j=await r.json();if(!j.ok)throw new Error(j.description||'Telegram error');return j}
+async function tgSendAll(blob,name,no,b){
+  const id=$('tgc').value.trim();if(!id||!$('tgt').value.trim())throw new Error('Bot token / Chat ID daalo');
+  const fd=new FormData();fd.append('chat_id',id);fd.append('caption','Quiz #'+no);fd.append('supports_streaming','true');fd.append('video',blob,name);await tgCall('sendVideo',fd,true);
+  const p=genParts(b);
+  for(const [lb,tx] of [['TITLE',p.title],['DESCRIPTION',p.desc],['PINNED COMMENT',p.pin]]){
+    const body={chat_id:id,text:'#'+no+' '+lb+'\n'+String(tx).slice(0,3900)};
+    if(tx.length<=256)body.reply_markup={inline_keyboard:[[{text:'📋 Copy '+lb.toLowerCase(),copy_text:{text:tx}}]]};
+    try{await tgCall('sendMessage',body)}catch(e){}
+  }
+}
+$('tgtest').onclick=async()=>{const m=$('tgmsg');m.textContent='Bhej raha hoon...';try{await tgCall('sendMessage',{chat_id:$('tgc').value.trim(),text:'✅ Quiz Maker connected'});m.textContent='Telegram connect ho gaya ✓'}catch(e){m.textContent='Nahi hua: '+e.message}};
+$('hexp').onclick=()=>save(new Blob([JSON.stringify({used:USED,last:LAST})],{type:'application/json'}),'quiz-history.json');
+$('himp').onclick=()=>$('hfile').click();
+$('hfile').onchange=async()=>{try{const j=JSON.parse(await $('hfile').files[0].text());USED=j.used||{};try{localStorage.setItem('sq_used',JSON.stringify(USED))}catch(e){}setLast(j.last||0);refreshPick();alert('History load ho gayi ✓')}catch(e){alert('File sahi nahi hai')}$('hfile').value=''};
+
+// ---------- Telegram message se rang (1-7 ya naam) ----------
+const PCMD=[['night',/night|dark|kala|kaala|black|raat|काला/],['sky',/sky|aasmani|asmani|neela|neele|nila|blue|आसमानी|नीला/],['bubble',/bubble|gulabi|pink|गुलाबी/],['jungle',/jungle|hara|hare|green|हरा/],['sunset',/sunset|narangi|orange|नारंगी/],['magic',/magic|baingani|purple|violet|jamuni|बैंगनी|जामुनी/],['auto',/auto|random|alag/],['classic',/classic|peela|peele|yellow|laal|red|पीला|लाल/]];
+function parsePal(t){t=String(t||'').toLowerCase().replace(/[.,!?]/g,' ').replace(/\s+/g,' ').trim();if(!t||t.startsWith('/')||t.length>40)return null;
+  const m=/^(?:rang |colou?r |style |theme )?([1-7])$/.exec(t);if(m)return PK[+m[1]-1];
+  for(const [k,re] of PCMD)if(re.test(t))return k;return null}
+async function tgReadPal(){
+  const id=$('tgc').value.trim();if(!id||!$('tgt').value.trim())return null;
+  const r=await tgCall('getUpdates',{limit:100,timeout:0,allowed_updates:['message']});
+  let seen=0;try{seen=+localStorage.getItem('tg_pal_uid')||0}catch(e){}
+  let f=null,top=seen;
+  for(const u of r.result||[]){const m=u.message;if(u.update_id>top)top=u.update_id;if(u.update_id<=seen||!m||String(m.chat&&m.chat.id)!==id||!m.text)continue;const k=parsePal(m.text);if(k)f=k}
+  try{localStorage.setItem('tg_pal_uid',top)}catch(e){}
+  if(f){$('pal').value=f;$('pal').dispatchEvent(new Event('change'));draw();
+    try{await tgCall('sendMessage',{chat_id:id,text:'🎨 Rang set: '+$('pal').selectedOptions[0].text+'\nAgla video isi design me banega.'})}catch(e){}}
+  return f}
+$('tgpal').onclick=async()=>{const m=$('tgmsg');m.textContent='Message padh raha hoon...';try{const f=await tgReadPal();m.textContent=f?'Rang set: '+$('pal').selectedOptions[0].text:'Koi naya rang-message nahi mila (1-7 ya naam likho)'}catch(e){m.textContent='Nahi hua: '+e.message}};
 </script>
 <script>
 /* ===== v15 full pass: UX layer (does not touch quiz logic) ===== */

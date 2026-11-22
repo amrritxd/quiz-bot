@@ -1,5 +1,6 @@
 // =====================================================================
 //  Amrittt Edition - Quiz Video Auto Bot  (make-quiz-v2.mjs)
+//  v14: HTML ab sirf CLASSIC design + 7 rang-theme (classic/bubble/sky/jungle/sunset/magic/night/auto); Telegram pe 1-7 / rang ka naam likho YA chat ke neeche ke BUTTONS dabao to agla video usi rang me; token / keys code se hata di (sirf GitHub Secrets / env se)
 //  v13: video ab 'Simple saaf design' (cur) me banta hai -> Safed + neela 2x2 (style d) default; Telegram pe colour ka naam likho to agla video usi style me; title / description / comment 3 alag message (alag copy)
 //  v12: BUG FIX - GitHub cron raat 12 ke baad late chale to wo agle din ke slot ko 'bhej diya' likh deta tha (aaj ka 5 baje wala video chhut jaata); ab cron apne asli slot ka hi maana jaata hai
 //  v11: workflow ka koi bhi step fail ho to Telegram pe turant khabar (--notify-fail)
@@ -30,8 +31,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 //  >>> BAAD ME YAHAN UPDATE KARNA (ya GitHub Secrets me daalna) <<<
 //  Secrets set honge to wahi use honge, warna ye neeche wale.
 // ---------------------------------------------------------------------
-const DEFAULT_BOT_TOKEN = '9259265199:AAFOQD7bc-zOo6qr5EXE7bDIBVoOTPyiJ2A';
-const DEFAULT_CHAT_ID = '8918487470';
+const DEFAULT_BOT_TOKEN = '';   // GitHub Secret TELEGRAM_BOT_TOKEN me daalo (yahan mat likho)
+const DEFAULT_CHAT_ID = '';     // GitHub Secret TELEGRAM_CHAT_ID
 
 // ---------------------------------------------------------------------
 //  ElevenLabs API keys (4). Baad me badalna ho to GitHub Secret
@@ -39,11 +40,7 @@ const DEFAULT_CHAT_ID = '8918487470';
 //  Secret set hoga to wahi use hoga, warna ye neeche wali.
 //  Ek key ke credits khatam / galat ho to script khud agli key lagati hai.
 // ---------------------------------------------------------------------
-const DEFAULT_ELEVEN_KEYS = [
-  'sk_d6ecf5ed9a18d07b3b0fbf5c09270eba0106e6290c488af6',
-  'sk_168722402f151c179e76bc33efe7fbd7996f2a5a33f3d7bc',
-  'sk_1c1f2b244b0f668f803a101e48ab35e9fb9c4e920169d243'
-];
+const DEFAULT_ELEVEN_KEYS = [];   // GitHub Secret ELEVENLABS_KEYS (comma / nayi line se alag)
 const parseKeys = (t) => String(t || '').split(/[\n,;]+/).map((k) => k.replace(/\s+/g, '')).filter((k) => k.length > 10);
 const envKeys = parseKeys(process.env.ELEVENLABS_KEYS);
 const ELEVEN_KEYS = envKeys.length ? envKeys : DEFAULT_ELEVEN_KEYS;
@@ -58,7 +55,7 @@ const CHAT_ID = (process.env.TELEGRAM_CHAT_ID || '').trim() || DEFAULT_CHAT_ID;
 //  Video settings (HTML ke options jaise hi)
 // ---------------------------------------------------------------------
 const CONFIG = {
-  fmt: process.env.QUIZ_FMT || 'cur',         // cur = Simple saaf design (bina curiosity, colour style neeche) | classic = purana white design
+  chn: process.env.QUIZ_CHANNEL || '',        // video ke neeche channel naam (khali = nahi)
   vlen: process.env.QUIZ_VLEN || '7+3',      // 5+1 | 7+1 | 9+1
   sfx: false,       // HTML ki apni awaazein band - sirf music.mp3 wali awaaz aayegi
   mo: true,
@@ -183,7 +180,8 @@ function readState() {
       used: j && typeof j.used === 'object' && j.used ? j.used : {},
       last: Number.isFinite(+j.last) ? +j.last : 0,
       total: Number.isFinite(+j.total) ? +j.total : 0,
-      style: /^[a-f]$/.test(j && j.style) ? j.style : ''
+      kb: !!(j && j.kb),
+      style: /^(classic|bubble|sky|jungle|sunset|magic|night|auto)$/.test(j && j.style) ? j.style : ''
     };
   } catch {
     return { used: {}, last: 0, total: 0 };
@@ -264,23 +262,25 @@ async function sendVideo(file, caption) {
 //  Colour / style: Telegram pe naam ya number likho -> agla video usi style me
 //  1 cream | 2 dark | 3 hara | 4 safed+neela (default) | 5 gehra neela+peela | 6 peela+laal
 // ---------------------------------------------------------------------
-const DEFAULT_STYLE = 'd';
-const STYLE_NAMES = { a: '1. Cream + terracotta', b: '2. Dark + peela, 2x2', c: '3. Hara blackboard', d: '4. Safed + neela, 2x2', e: '5. Gehra neela + peela', f: '6. Peela background + laal, 2x2' };
+const DEFAULT_STYLE = 'classic';
+const PAL_KEYS = ['classic', 'bubble', 'sky', 'jungle', 'sunset', 'magic', 'night'];
+const STYLE_NAMES = { classic: '1. Classic (peela + laal)', bubble: '2. Bubblegum (gulabi)', sky: '3. Sky Blue (aasmani)', jungle: '4. Jungle (hara)', sunset: '5. Sunset (narangi)', magic: '6. Magic (baingani)', night: '7. Night (dark)', auto: 'Auto (har video alag rang)' };
+const PCMD = [['night', /night|dark|kala|kaala|black|raat|काला/], ['sky', /sky|aasmani|asmani|neela|neele|nila|blue|आसमानी|नीला/], ['bubble', /bubble|gulabi|pink|गुलाबी/], ['jungle', /jungle|hara|hare|green|हरा/], ['sunset', /sunset|narangi|orange|नारंगी/], ['magic', /magic|baingani|purple|violet|jamuni|बैंगनी|जामुनी/], ['auto', /auto|random|alag/], ['classic', /classic|peela|peele|yellow|laal|\blal\b|red|पीला|लाल/]];
 function parseStyleCmd(text) {
   const t = String(text || '').toLowerCase().replace(/[.,!?]/g, ' ').replace(/\s+/g, ' ').trim();
   if (!t || t.startsWith('/') || t.length > 40) return null;
-  const num = /^(?:style |colou?r )?([1-6])$/.exec(t);
-  if (num) return 'abcdef'[+num[1] - 1];
-  const has = (re) => re.test(t);
-  const blue = has(/neela|neele|blue|नीला|नीले/), yellow = has(/peela|peele|yellow|पीला|पीले|laal|lal |red|लाल/);
-  if (has(/gehra|gehre|deep|navy|dark blue|गहरा/) && blue) return 'e';
-  if (blue && yellow) return 'e';
-  if (blue || has(/safed|white|सफेद|सफ़ेद/)) return 'd';
-  if (yellow) return 'f';
-  if (has(/cream|terracotta|brown/)) return 'a';
-  if (has(/hara|hare|green|blackboard|हरा/)) return 'c';
-  if (has(/dark|kala|kaala|black|काला/)) return 'b';
+  const num = /^(?:rang |style |colou?r |theme )?([1-7])$/.exec(t);
+  if (num) return PAL_KEYS[+num[1] - 1];
+  for (const [k, re] of PCMD) if (re.test(t)) return k;
   return null;
+}
+// Telegram chat ke neeche rang ke buttons (reply keyboard) - button dabate hi uska text bot ko message ban kar aata hai
+const KEYBOARD = {
+  keyboard: [['🟡 Classic', '🩷 Bubblegum'], ['🩵 Sky Blue', '🟢 Jungle'], ['🟠 Sunset', '🟣 Magic'], ['🌙 Night', '🎲 Auto']],
+  resize_keyboard: true, is_persistent: true, input_field_placeholder: 'Agle video ka rang chuno'
+};
+async function sendKeyboard(text) {
+  return tg('sendMessage', () => ({ chat_id: CHAT_ID, text: text || '🎨 Agle video ka rang chuno 👇', reply_markup: KEYBOARD }), false);
 }
 let STYLE_ANNOUNCED = null;
 async function resolveStyle(state) {
@@ -299,7 +299,7 @@ async function resolveStyle(state) {
       style = found;
       if (STYLE_ANNOUNCED !== found) {
         STYLE_ANNOUNCED = found;
-        try { await sendText('🎨 Style set: ' + STYLE_NAMES[found] + '\nAgla video isi design me banega.'); } catch {}
+        try { await sendKeyboard('🎨 Rang set: ' + STYLE_NAMES[found] + '\nAgla video isi rang me banega.'); } catch {}
       }
     }
   } catch (e) { log('Telegram se colour padh nahi paya (purana style chalega):', e && e.message ? e.message : e); }
@@ -513,17 +513,17 @@ const PAGE_OVERRIDE = String.raw`
   // ---- Neeche ke 3 CTA (comment text + Subscribe line + Subscribe button): photo me hi, bilkul still ----
   window.__drawStaticCTA = function(c){
     c.save();
-    c.fillStyle = '#fff'; c.fillRect(100, 2235, W - 200, 320);
+    setPal(); c.fillStyle = PAL.bg; c.fillRect(100, 2235, W - 200, 320);
     c.textAlign = 'center'; c.textBaseline = 'middle';
     const t1 = 'सही जवाब कमेंट में लिखो 👇'; let f1 = 62;
     do { c.font = '700 ' + f1 + 'px Poppins'; f1 -= 2; } while (c.measureText(t1).width > W - 420 && f1 > 30);
     const w1 = c.measureText(t1).width;
     c.fillStyle = '#1e88e5'; bubbleP(c, W / 2 - w1 / 2 - 70, 2298, 34);
-    c.fillStyle = '#222'; c.fillText(t1, W / 2 + 40, 2300);
+    c.fillStyle = PAL.sub; c.fillText(t1, W / 2 + 40, 2300);
     const t2 = 'चैनल को Subscribe करो, वरना सवाल आप तक नहीं पहुँचेगा!'; let f2 = 46;
     do { c.font = '700 ' + f2 + 'px Poppins'; f2 -= 2; } while (c.measureText(t2).width > W - 280 && f2 > 24);
-    c.fillStyle = '#e60012'; c.fillText(t2, W / 2, 2385);
-    c.fillStyle = '#e60012'; rr(c, W / 2 - 260, 2430, 520, 90, 45); c.fill();
+    c.fillStyle = PAL.btn; c.fillText(t2, W / 2, 2385);
+    c.fillStyle = PAL.btn; rr(c, W / 2 - 260, 2430, 520, 90, 45); c.fill();
     c.fillStyle = '#fff'; c.font = '700 50px Poppins'; c.fillText('🔔 Subscribe', W / 2, 2478);
     c.restore();
   };
@@ -533,27 +533,17 @@ const PAGE_OVERRIDE = String.raw`
     const total = QD + AD, sc = VW / W;
     const rc = document.createElement('canvas'); rc.width = VW; rc.height = VH; const rctx = rc.getContext('2d');
     rctx.setTransform(1,0,0,1,0,0); rctx.clearRect(0,0,VW,VH); rctx.scale(sc,sc);
-    const isCur = item.fmt === 'cur';
     const NQ = Math.round(QD * FPS);
     let frame = null;
     const grab = () => { const u = rc.toDataURL('image/jpeg', 0.92); return u.slice(u.indexOf(',') + 1); };
-    if (!isCur) {
-      render(rctx, {...item, ans: false, cur: false, m: undefined});   // purana still design
-      window.__drawStaticCTA(rctx);
-      rctx.setTransform(1,0,0,1,0,0);
-      frame = grab();
-    }
+    render(rctx, {...item, ans: false, m: undefined});   // classic still design
+    window.__drawStaticCTA(rctx);
+    { const wm = ($('chn') || {}).value; if (wm) { rctx.textAlign = 'center'; rctx.textBaseline = 'middle'; rctx.font = '700 54px Poppins'; rctx.fillStyle = PAL.s2t; rctx.fillText(wm.slice(0, 40), W / 2, 2538); } }
+    rctx.setTransform(1,0,0,1,0,0);
+    frame = grab();
     await window.__qStart(JSON.stringify({ fps: FPS, total, w: VW, h: VH, sr: SR }));
     const N = total * FPS;
     for (let i = 0; i < N; i++) {
-      if (isCur) {
-        // text pura likha hua (t = QD), sirf countdown circle chalta hai: poori video bhar (total -> 0)
-        window.__RTT = total; window.__RT = Math.max(0, total - i / FPS);
-        rctx.setTransform(sc,0,0,sc,0,0); renderCur(rctx, item, QD);
-        rctx.setTransform(1,0,0,1,0,0);
-        frame = grab();
-        window.__RT = null; window.__RTT = null;
-      }
       await window.__qFrame(frame);
       if (i % 30 === 0) { onProg(i / N * 0.9); await yieldNow(); }
     }
@@ -561,15 +551,15 @@ const PAGE_OVERRIDE = String.raw`
     onProg(0.92);
     // ---- audio (original jaisa) ----
     const oac = new OfflineAudioContext(2, SR * total, SR);
-    if (item.voice) { const vs = oac.createBufferSource(); vs.buffer = item.voice; const vg = oac.createGain(); vg.gain.value = 1; vs.connect(vg); vg.connect(oac.destination); vs.start(isCA(item.fmt) ? HKE : 0.3); }
+    if (item.voice) { const vs = oac.createBufferSource(); vs.buffer = item.voice; const vg = oac.createGain(); vg.gain.value = 1; vs.connect(vg); vg.connect(oac.destination); vs.start(0.3); }
     if (item.voiceA) { const va = oac.createBufferSource(); va.buffer = item.voiceA; const vag = oac.createGain(); vag.gain.value = 1; va.connect(vag); vag.connect(oac.destination); va.start(QD + 0.35); }
     if (buf) { const sn = oac.createBufferSource(); sn.buffer = buf; sn.loop = true; const g = oac.createGain(), vl = +$('vol').value * (item.voice ? 0.35 : 1); g.gain.setValueAtTime(vl, 0); g.gain.setValueAtTime(vl, total - 0.8); g.gain.linearRampToValueAtTime(0.0001, total); sn.connect(g); g.connect(oac.destination); sn.start(0); }
     if (window.__END_SOUND === true) window.__endSfx(oac, QD);
-    if ($('tick').checked && !isCA(item.fmt)) {
+    if ($('tick').checked) {
       for (let k = item.voice ? Math.max(0, QD - 3) : 0; k < QD; k++) beep(oac, oac.destination, k + 0.05, k >= QD - 3 ? 1000 : 700, .08, .25);
       if (!item.sfx) { beep(oac, oac.destination, QD + 0.05, 1250, .5, .35); beep(oac, oac.destination, QD + 0.2, 1600, .5, .3); }
     }
-    if (item.sfx) { if (isCA(item.fmt)) addSfxCur(oac, QD, item.fmt === 'oldcur'); else addSfx(oac, QD); }
+    if (item.sfx) addSfx(oac, QD);
     const ab = await oac.startRendering();
     const L = ab.getChannelData(0), R = ab.getChannelData(1);
     const inter = new Float32Array(L.length * 2);
@@ -706,9 +696,9 @@ async function runOnce(attempt) {
         e.dispatchEvent(new Event('input', { bubbles: true }));
         e.dispatchEvent(new Event('change', { bubbles: true }));
       };
-      set('fmt', c.fmt); set('vlen', c.vlen); set('sfx', c.sfx); set('mo', c.mo); set('fx', c.fx);
-      set('tick', c.tick); set('vol', c.vol); set('hook', c.hook); set('mc', c.mc);
-      set('wimg', false); set('vn', '1'); set('sty', c.style);
+      set('pal', c.style); set('chn', c.chn); set('loop', false); set('skp', false); set('tgs', false); set('vlen', c.vlen); set('sfx', c.sfx); set('mo', c.mo); set('fx', c.fx);
+      set('tick', c.tick); set('vol', c.vol); set('mc', c.mc);
+      set('wimg', false); set('vn', '1');
       // awaaz ON (asli ElevenLabs call Node karta hai)
       const xv = document.getElementById('xv');
       if (xv && ![...xv.options].some((o) => o.value === c.voiceId)) { const o = document.createElement('option'); o.value = c.voiceId; o.textContent = c.voiceId; xv.appendChild(o); }
@@ -817,9 +807,12 @@ async function runOnce(attempt) {
       }
     }
 
+    // rang ke buttons chat ke neeche (sirf pehli baar; baad me rang badalne par bhi aate rehte hain)
+    if (!state.kb) { try { await sendKeyboard(); state.kb = true; } catch (e) { log('buttons nahi gaye:', e.message); } }
+
     // state save (bhejne ke baad)
     const st = await page.evaluate(() => ({ used: USED, last: LAST }));
-    writeState({ used: st.used, last: st.last, total: (state.total || 0) + 1, style });
+    writeState({ used: st.used, last: st.last, total: (state.total || 0) + 1, style, kb: !!state.kb });
     log('Done. Sent quiz #' + qno);
     return true;
   } finally {
