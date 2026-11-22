@@ -276,8 +276,8 @@ function parseStyleCmd(text) {
 }
 // Telegram chat ke neeche rang ke buttons (reply keyboard) - button dabate hi uska text bot ko message ban kar aata hai
 const KEYBOARD = {
-  keyboard: [['🟡 Classic', '🩷 Bubblegum'], ['🩵 Sky Blue', '🟢 Jungle'], ['🟠 Sunset', '🟣 Magic'], ['🌙 Night', '🎲 Auto']],
-  resize_keyboard: true, is_persistent: true, input_field_placeholder: 'Agle video ka rang chuno'
+  keyboard: [['🎬 Abhi video'], ['🟡 Classic', '🩷 Bubblegum'], ['🩵 Sky Blue', '🟢 Jungle'], ['🟠 Sunset', '🟣 Magic'], ['🌙 Night', '🎲 Auto']],
+  resize_keyboard: true, is_persistent: true, input_field_placeholder: 'Video chahiye ya rang chuno'
 };
 async function sendKeyboard(text) {
   return tg('sendMessage', () => ({ chat_id: CHAT_ID, text: text || '🎨 Agle video ka rang chuno 👇', reply_markup: KEYBOARD }), false);
