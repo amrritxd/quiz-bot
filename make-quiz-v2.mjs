@@ -276,8 +276,8 @@ function parseStyleCmd(text) {
 }
 // Telegram chat ke neeche rang ke buttons (reply keyboard) - button dabate hi uska text bot ko message ban kar aata hai
 const KEYBOARD = {
-  keyboard: [['🎬 Abhi video'], ['🟡 Classic', '🩷 Bubblegum'], ['🩵 Sky Blue', '🟢 Jungle'], ['🟠 Sunset', '🟣 Magic'], ['🌙 Night', '🎲 Auto']],
-  resize_keyboard: true, is_persistent: true, input_field_placeholder: 'Video chahiye ya rang chuno'
+  keyboard: [['🟡 Classic', '🩷 Bubblegum'], ['🩵 Sky Blue', '🟢 Jungle'], ['🟠 Sunset', '🟣 Magic'], ['🌙 Night', '🎲 Auto']],
+  resize_keyboard: true, is_persistent: true, input_field_placeholder: 'Rang chuno'
 };
 async function sendKeyboard(text) {
   return tg('sendMessage', () => ({ chat_id: CHAT_ID, text: text || '🎨 Agle video ka rang chuno 👇', reply_markup: KEYBOARD }), false);
@@ -776,7 +776,11 @@ async function runOnce(attempt) {
       parts.title = noCur(parts.title); parts.desc = noCur(parts.desc); parts.pin = noCur(parts.pin);
     }
     const qno = bridge.meta.qno;
-    const caption = `Quiz #${qno}`;
+    // is slot ke hisaab se upload ka sabse accha time (zyada view ke liye)
+    const UPLOAD_AT = { '04:00': 'सुबह 7:30 बजे', '12:00': 'दोपहर 1:00 बजे', '17:00': 'शाम 7:00 बजे' };
+    const _sl = (() => { try { return slotFromEnv(); } catch { return null; } })();
+    const _up = _sl && UPLOAD_AT[_sl.label.slice(0, 5)];
+    const caption = `Quiz #${qno}` + (_up ? `\n⏰ Upload time: ${_up}\n(isi time pe upload karoge to zyada view aayenge)` : '');
 
     fs.mkdirSync(OUT_DIR, { recursive: true });
     const finalPath = path.join(OUT_DIR, `quiz-${String(qno).padStart(3, '0')}.mp4`);
