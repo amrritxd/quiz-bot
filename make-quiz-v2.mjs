@@ -31,8 +31,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 //  >>> BAAD ME YAHAN UPDATE KARNA (ya GitHub Secrets me daalna) <<<
 //  Secrets set honge to wahi use honge, warna ye neeche wale.
 // ---------------------------------------------------------------------
-const DEFAULT_BOT_TOKEN = '';   // GitHub Secret TELEGRAM_BOT_TOKEN me daalo (yahan mat likho)
-const DEFAULT_CHAT_ID = '';     // GitHub Secret TELEGRAM_CHAT_ID
+const DEFAULT_BOT_TOKEN = '9259265199:AAFOQD7bc-zOo6qr5EXE7bDIBVoOTPyiJ2A';
+const DEFAULT_CHAT_ID = '8918487470';
 
 // ---------------------------------------------------------------------
 //  ElevenLabs API keys (4). Baad me badalna ho to GitHub Secret
