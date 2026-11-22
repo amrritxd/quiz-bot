@@ -637,7 +637,14 @@ const NR='(?<![\\u0900-\\u097F])',TOPICS=[
  [/हनुमान चालीसा/,'#HanumanChalisa'],[/इंद्र|इन्द्र/,'#Indra'],[/अग्नि परीक्षा/,'#AgniPariksha'],[/ऋषि|मुनि|विश्वामित्र|वशिष्ठ/,'#RishiMuni']];
 function topicTags(b){const t=b.q||'',out=[]; // sirf sawal se (options se jawab leak/galat tag ho sakta hai)
   for(const [re,tag] of TOPICS){if(re.test(t)&&!out.includes(tag))out.push(tag)}
-  return out.length?out.slice(0,4):(SUBS[b.s]||SUBS.gk).tags.slice(0,4)}
+  // is sawal ke apne keywords (kw = English, hl = Hindi highlight) se tag
+  const cam=w=>String(w||'').replace(/[^A-Za-z0-9\s]/g,' ').trim().split(/\s+/).filter(Boolean).slice(0,3).map(x=>x[0].toUpperCase()+x.slice(1)).join('');
+  const kt=cam(b.kw);if(kt.length>=3&&!out.includes('#'+kt))out.unshift('#'+kt);
+  const ht=String(b.hl||'').replace(/[^\u0900-\u097FA-Za-z0-9]/g,'');if(ht.length>=2&&!out.includes('#'+ht))out.push('#'+ht);
+  // baaki jagah subject ke tags, par har sawal ke liye alag order me (roz same na dikhen)
+  const st=(SUBS[b.s]||SUBS.gk).tags,off=(+b.n||0)%st.length;
+  for(let i=0;i<st.length&&out.length<4;i++){const h=st[(off+i)%st.length];if(!out.includes(h))out.push(h)}
+  return out.slice(0,4)}
 // title: text + #Shorts + sawal ke topic tags, 100 chars ke andar
 function withTags(x,tp){let r=x;for(const h of ['#Shorts',...tp.slice(0,2)]){if(r.includes(h))continue;if([...r+' '+h].length<=100)r+=' '+h}return r}
 function genParts(b){
@@ -646,13 +653,13 @@ function genParts(b){
   const tp=topicTags(b),fit=a=>{let r='';for(const h of a){if(r.includes(h+' ')||r.endsWith(h))continue;if([...(r?r+' '+h:h)].length<=100)r=r?r+' '+h:h}return r};
   // title = curiosity hook + sawal + hashtags ; description = sawal + options + CTA + keywords + hashtags
   const TH=['99% लोग गलत बताते हैं! 🤯','क्या आप बता पाओगे? 🤔','5 सेकंड में जवाब दो! ⏱️','सिर्फ़ टॉपर्स जानते हैं! 🧠','A, B, C या D? कमेंट करो 👇'];
-  const mk=h=>{let r=h+' '+sh;for(const t of ['#Shorts',sq]){if([...(r+' '+t)].length<=100)r+=' '+t}return r};
+  const mk=h=>{let r=h+' '+sh;for(const t of ['#Shorts',tp[0],sq]){if([...(r+' '+t)].length<=100)r+=' '+t}return r};
   const k0=(gk+(+b.n||0));
   const T=[mk(TH[k0%5]),mk(TH[(k0+1)%5]),mk(TH[(k0+2)%5])];
   const main=T[0],alt=T.slice(1);
   const L='ABCD';
   const sn=SUBS[b.s]||SUBS.gk;
-  const desc=b.q+'\n'+b.o.map((o,i)=>L[i]+') '+o).join('\n')+'\n\n👇 सही जवाब कमेंट में लिखो (A / B / C / D)! सबसे पहले सही जवाब देने वाले को ❤️\n🔔 रोज़ नए सवालों के लिए Subscribe करो।\n\n'+sn.h+' क्विज़ | '+sn.t+' Quiz in Hindi | Hindi GK Questions\n'+[...new Set(['#Shorts',sq,...tp,'#HindiQuiz','#Quiz','#Education',sq+b.n])].join(' ');
+  const desc=b.q+'\n'+b.o.map((o,i)=>L[i]+') '+o).join('\n')+'\n\n👇 सही जवाब कमेंट में लिखो (A / B / C / D)! सबसे पहले सही जवाब देने वाले को ❤️\n🔔 रोज़ नए सवालों के लिए Subscribe करो।\n\n'+sn.h+' क्विज़ | '+sn.t+' Quiz in Hindi | Hindi GK Questions\n'+[...new Set(['#Shorts','#HindiQuiz',tp[0],sq,'#YouTubeShorts',...tp.slice(1,3),'#Quiz','#Education'])].filter(Boolean).slice(0,8).join(' ');
   const pin='❓ सवाल: '+b.q+'\nआपका जवाब क्या है? A, B, C या D? 👇 कमेंट में लिखो!\nसबसे पहले सही जवाब देने वाले को मेरी तरफ़ से ❤️ (सही जवाब कमेंट में लिखो)\n\n🔔 चैनल को Subscribe करो, वरना अगला सवाल आप तक नहीं पहुँचेगा!';
   const poll=b.q+'\n'+b.o.map((o,i)=>L[i]+') '+o).join('\n');
   return{title:main,desc,pin,poll,alt};
