@@ -1,5 +1,6 @@
 // =====================================================================
 //  Amrittt Edition - Quiz Video Auto Bot  (make-quiz-v2.mjs)
+//  v15: NAYA 'Happy Pop' design (gradient header, rangeen option cards, confetti, bada Subscribe button) + 42 Bihar Board (Hindi 12th) objective sawal, bina photo ke (np:1)
 //  v14: HTML ab sirf CLASSIC design + 7 rang-theme (classic/bubble/sky/jungle/sunset/magic/night/auto); Telegram pe 1-7 / rang ka naam likho YA chat ke neeche ke BUTTONS dabao to agla video usi rang me; token / keys code se hata di (sirf GitHub Secrets / env se)
 //  v13: video ab 'Simple saaf design' (cur) me banta hai -> Safed + neela 2x2 (style d) default; Telegram pe colour ka naam likho to agla video usi style me; title / description / comment 3 alag message (alag copy)
 //  v12: BUG FIX - GitHub cron raat 12 ke baad late chale to wo agle din ke slot ko 'bhej diya' likh deta tha (aaj ka 5 baje wala video chhut jaata); ab cron apne asli slot ka hi maana jaata hai
@@ -511,22 +512,8 @@ const PAGE_OVERRIDE = String.raw`
   };
 
   // ---- Neeche ke 3 CTA (comment text + Subscribe line + Subscribe button): photo me hi, bilkul still ----
-  window.__drawStaticCTA = function(c){
-    c.save();
-    setPal(); c.fillStyle = PAL.bg; c.fillRect(100, 2235, W - 200, 320);
-    c.textAlign = 'center'; c.textBaseline = 'middle';
-    const t1 = 'सही जवाब कमेंट में लिखो 👇'; let f1 = 62;
-    do { c.font = '700 ' + f1 + 'px Poppins'; f1 -= 2; } while (c.measureText(t1).width > W - 420 && f1 > 30);
-    const w1 = c.measureText(t1).width;
-    c.fillStyle = '#1e88e5'; bubbleP(c, W / 2 - w1 / 2 - 70, 2298, 34);
-    c.fillStyle = PAL.sub; c.fillText(t1, W / 2 + 40, 2300);
-    const t2 = 'चैनल को Subscribe करो, वरना सवाल आप तक नहीं पहुँचेगा!'; let f2 = 46;
-    do { c.font = '700 ' + f2 + 'px Poppins'; f2 -= 2; } while (c.measureText(t2).width > W - 280 && f2 > 24);
-    c.fillStyle = PAL.btn; c.fillText(t2, W / 2, 2385);
-    c.fillStyle = PAL.btn; rr(c, W / 2 - 260, 2430, 520, 90, 45); c.fill();
-    c.fillStyle = '#fff'; c.font = '700 50px Poppins'; c.fillText('🔔 Subscribe', W / 2, 2478);
-    c.restore();
-  };
+  // v15: Subscribe / comment CTA ab HTML ke render() me hi bana hai (naya 'Happy Pop' design) - alag overlay ki zarurat nahi
+  window.__drawStaticCTA = function(){};
 
   // ---- STILL IMAGE video: ek hi frame poori video me, koi animation / timer / fade nahi ----
   window.makeMp4 = async function(item, buf, onProg){
@@ -538,7 +525,6 @@ const PAGE_OVERRIDE = String.raw`
     const grab = () => { const u = rc.toDataURL('image/jpeg', 0.92); return u.slice(u.indexOf(',') + 1); };
     render(rctx, {...item, ans: false, m: undefined});   // classic still design
     window.__drawStaticCTA(rctx);
-    { const wm = ($('chn') || {}).value; if (wm) { rctx.textAlign = 'center'; rctx.textBaseline = 'middle'; rctx.font = '700 54px Poppins'; rctx.fillStyle = PAL.s2t; rctx.fillText(wm.slice(0, 40), W / 2, 2538); } }
     rctx.setTransform(1,0,0,1,0,0);
     frame = grab();
     await window.__qStart(JSON.stringify({ fps: FPS, total, w: VW, h: VH, sr: SR }));
@@ -733,8 +719,8 @@ async function runOnce(attempt) {
         const i = BANK.findIndex((b) => !USED[b.n]);
         if (i < 0) return { none: true };
         const b = BANK[i];
-        const im = await autoFetch(b.kw, b.q);          // network error pe throw karta hai
-        if (!im) {
+        const im = b.np ? false : await autoFetch(b.kw, b.q);   // np:1 = bina photo (design art), network error pe throw karta hai
+        if (im === null || im === undefined) {
           USED[b.n] = 'skip';
           try { localStorage.setItem('sq_used', JSON.stringify(USED)); } catch (e) {}
           return { skip: true, i, kw: b.kw };
