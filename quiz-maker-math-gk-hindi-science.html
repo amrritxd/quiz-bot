@@ -677,7 +677,7 @@ $('auto').onclick=async()=>{
 };
 
 // ---------- question bank ----------
-const pick=$('pick');let SUB='gk';const inSub=i=>SUB==='all'||BANK[i].s===SUB;
+const pick=$('pick');let SUB=BOARD_ONLY?'all':'gk';const inSub=i=>SUB==='all'||BANK[i].s===SUB;
 function buildPick(){pick.innerHTML='';let c=0;BANK.forEach((b,i)=>{if(!inSub(i))return;c++;const o=document.createElement('option');o.value=i;o.textContent=(isUsed(i)?'✓ ':'')+(i+1)+'. '+b.q.slice(0,38)+'…';pick.appendChild(o)});$('cnt').textContent=c}
 let USED={};try{USED=JSON.parse(localStorage.getItem('sq_used')||'{}')}catch(e){}
 const isUsed=i=>!!USED[BANK[i].n];
