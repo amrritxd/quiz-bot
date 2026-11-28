@@ -1,5 +1,7 @@
 // =====================================================================
 //  Amrittt Edition - Quiz Video Auto Bot  (make-quiz-v2.mjs)
+//  v17: +44 board sawal - ch.4 अर्धनारीश्वर (Dinkar) + ch.5 रोज (Agyeya), chapter hashtags
+//  v16: SIRF Bihar Board (Hindi 12th) sawal banenge (GK band) + title/description me board hashtags (#BiharBoard2027 #BSEB #Class12Hindi ...). GK wapas chahiye to HTML me BOARD_ONLY=false
 //  v15: NAYA 'Happy Pop' design (gradient header, rangeen option cards, confetti, bada Subscribe button) + 42 Bihar Board (Hindi 12th) objective sawal, bina photo ke (np:1)
 //  v14: HTML ab sirf CLASSIC design + 7 rang-theme (classic/bubble/sky/jungle/sunset/magic/night/auto); Telegram pe 1-7 / rang ka naam likho YA chat ke neeche ke BUTTONS dabao to agla video usi rang me; token / keys code se hata di (sirf GitHub Secrets / env se)
 //  v13: video ab 'Simple saaf design' (cur) me banta hai -> Safed + neela 2x2 (style d) default; Telegram pe colour ka naam likho to agla video usi style me; title / description / comment 3 alag message (alag copy)
